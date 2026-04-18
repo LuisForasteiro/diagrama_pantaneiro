@@ -1,0 +1,94 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Paleta pantaneira — águas escuras, mata ripária, pôr-do-sol de tuiuiú */
+  --bg: #07100e;              /* água profunda ao anoitecer */
+  --surface: #0c1714;         /* baía em sombra */
+  --surface-raised: #112019;  /* margem úmida */
+  --hairline: #1d2e26;        /* barro seco */
+  --hairline-strong: #2c4236; /* musgo de tronco */
+  --ink: #e8dfc6;             /* areia / plumagem */
+  --ink-dim: #8fa294;         /* sapê claro */
+  --ink-muted: #55675c;       /* liquem */
+  --accent: #e8822c;          /* pôr-do-sol / bico do tuiuiú */
+  --accent-dim: #7a3f12;      /* ocre queimado */
+  --positive: #7eb360;        /* pastagem de cerradão */
+  --negative: #c94a3b;        /* argila queimada */
+  --info: #4fa8b8;            /* água de corixo ao sol */
+
+  font-family: "JetBrains Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+  font-feature-settings: "calt" 1, "ss01" 1, "zero" 1;
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+*,
+::before,
+::after {
+  border-radius: 0 !important;
+}
+
+.tab-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Global dark-theme overrides for Tailwind light utilities.
+ * Defined AFTER @tailwind utilities so they win on specificity tie.
+ * Lets legacy pages inherit the terminal aesthetic without edits.
+ * ─────────────────────────────────────────────────────────────*/
+
+/* Surfaces */
+.bg-white { background-color: var(--surface) !important; }
+.bg-slate-50 { background-color: var(--bg) !important; }
+.bg-slate-100 { background-color: var(--surface-raised) !important; }
+.bg-slate-200 { background-color: var(--surface-raised) !important; }
+.bg-slate-900 { background-color: var(--accent) !important; color: var(--bg) !important; }
+
+/* Toast / status tints → tinted dark surfaces */
+.bg-emerald-50 { background-color: #0f1e16 !important; }
+.text-emerald-800, .text-emerald-700, .text-emerald-600 { color: var(--positive) !important; }
+.bg-amber-50 { background-color: #1c1308 !important; }
+.text-amber-800, .text-amber-700, .text-amber-600 { color: var(--accent) !important; }
+.bg-red-50 { background-color: #1d0f0c !important; }
+.text-red-700, .text-red-600 { color: var(--negative) !important; }
+.bg-blue-50 { background-color: #0c1d21 !important; }
+.text-blue-700, .text-blue-600 { color: var(--info) !important; }
+
+/* Text */
+.text-slate-900, .text-slate-800 { color: var(--ink) !important; }
+.text-slate-700, .text-slate-600 { color: var(--ink-dim) !important; }
+.text-slate-500, .text-slate-400 { color: var(--ink-muted) !important; }
+.text-white { color: var(--bg) !important; } /* used on dark-bg buttons */
+
+/* Borders / dividers */
+.border-slate-300,
+.border-slate-200,
+.border-slate-100 { border-color: var(--hairline) !important; }
+
+/* Hover tints on legacy buttons */
+.hover\:bg-slate-300:hover { background-color: var(--hairline-strong) !important; }
+.hover\:bg-slate-700:hover { background-color: #f59640 !important; color: var(--bg) !important; }
+
+/* Form inputs — make them dark-native */
+input, select, textarea {
+  background-color: var(--surface-raised);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+}
+input::placeholder, textarea::placeholder { color: var(--ink-muted); }
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-dim);
+}
+select option { background: var(--surface); color: var(--ink); }

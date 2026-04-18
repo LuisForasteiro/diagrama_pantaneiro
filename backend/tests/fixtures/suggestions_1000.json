@@ -1,0 +1,10 @@
+{
+  "endpoint": "POST https://ferramentas-backend.auvp.com.br/users/suggestions",
+  "requestBody": { "value": 1000 },
+  "responseStatus": 201,
+  "responseBody": [
+    {"assetType":"criptomoedas","assetName":"BTC","assetId":"67bd3b53ee6fea8789b7bf32","currentValue":3136.1578678975297,"strength":10,"suggestionQuantity":0.0016,"currentQuantity":0.008365,"currentPrice":374914.269922,"recommendedPercentage":0,"suggestionPercentage":0.614993525843696,"totalAfterSuggestionPercentage":11.59505987309207,"suggestionValue":614.993525843696},
+    {"assetType":"rendafixa","assetName":"LCI INTER 90,00","assetId":"67bd3d5cee6fea8789b7c284","currentValue":1074,"strength":8,"suggestionQuantity":1,"currentQuantity":1,"recommendedPercentage":0,"suggestionPercentage":0.17384319931548123,"totalAfterSuggestionPercentage":3.857166797489141,"suggestionValue":173.84319931548123},
+    {"assetType":"rendafixa","assetName":"BANCO VOITER PREFIXADO 18,50% ","assetId":"683de55ee80876314d412f5c","currentValue":1173,"strength":9,"suggestionQuantity":1,"currentQuantity":1,"recommendedPercentage":0,"suggestionPercentage":0.2111632748408278,"totalAfterSuggestionPercentage":4.27854126940678,"suggestionValue":211.1632748408278}
+  ]
+}

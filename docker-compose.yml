@@ -1,0 +1,30 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/app.db
+      - JWT_SECRET=${JWT_SECRET}
+      - BRAPI_TOKEN=${BRAPI_TOKEN:-}
+      - TIMEZONE=America/Sao_Paulo
+    volumes:
+      - backend_data:/app/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build: ./frontend
+    image: diagrama-cerrado-frontend:latest
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend_data:

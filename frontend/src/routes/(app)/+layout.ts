@@ -1,0 +1,42 @@
+import { redirect } from "@sveltejs/kit";
+import { get } from "svelte/store";
+
+import { getCurrentUser } from "$lib/api/auth";
+import { listPortfolios } from "$lib/api/portfolios";
+import { authStore } from "$lib/stores/auth";
+import { portfolioStore } from "$lib/stores/portfolio";
+
+import type { LayoutLoad } from "./$types";
+
+export const ssr = false;
+
+export const load: LayoutLoad = async () => {
+  const state = get(authStore);
+  if (!state.token) {
+    throw redirect(307, "/login");
+  }
+
+  if (!state.user) {
+    try {
+      const user = await getCurrentUser();
+      authStore.setUser(user);
+    } catch {
+      authStore.logout();
+      throw redirect(307, "/login");
+    }
+  }
+
+  // Fetch portfolios once per session so every downstream API call has
+  // a valid X-Portfolio-Id header from the store.
+  if (get(portfolioStore).all.length === 0) {
+    try {
+      const portfolios = await listPortfolios();
+      portfolioStore.setAll(portfolios);
+    } catch {
+      // Swallow: the backend has a default-portfolio fallback in the
+      // get_active_portfolio dep, so the app still works even if this fails.
+    }
+  }
+
+  return {};
+};

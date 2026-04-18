@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Node
+node_modules/
+.svelte-kit/
+build/
+dist/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Docker volumes / runtime
+backend/data/
+backend/app.db
+backend/app.db-journal
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# IDE / OS / tooling
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+.claude/settings.local.json
+.playwright-mcp/
+
+# Screenshots / scratch captures at project root
+/*.png
+/*.jpg
+/*.jpeg
+
+# Internal / scratch
+captures/
+research/
+screenshots/
+docs/
+CLAUDE.md
+REVERSE_ENGINEERING.md
+
+# Lockfiles (uv.lock and package-lock.json are tracked intentionally for reproducible installs)

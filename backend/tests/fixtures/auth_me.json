@@ -1,0 +1,534 @@
+{
+  "_id": "000000000000000000000001",
+  "name": "Demo User",
+  "patrimony": 0,
+  "email": "demo@example.com",
+  "createdAt": "2024-11-14T17:59:37.938Z",
+  "costs": [],
+  "defaultCosts": [],
+  "incomes": [],
+  "role": "customer",
+  "active": false,
+  "goals": [],
+  "investimentGoals": [
+    {
+      "type": "acoes_internacionais",
+      "value": 5
+    },
+    {
+      "type": "acoes_nacionais",
+      "value": 55
+    },
+    {
+      "type": "fundos_imobiliarios",
+      "value": 0
+    },
+    {
+      "type": "reits",
+      "value": 0
+    },
+    {
+      "type": "criptomoedas",
+      "value": 20
+    },
+    {
+      "type": "rendafixa",
+      "value": 20
+    },
+    {
+      "type": "rendafixa_internacional",
+      "value": 0,
+      "_id": "6825009df7e144330b52a9f1"
+    }
+  ],
+  "assetsLiabilities": [],
+  "diagramQuestions": [
+    {
+      "criterias": "ROE",
+      "question": "ROE historicamente maior que 5%? (Considere anos anteriores).",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f50"
+    },
+    {
+      "criterias": "CAGR",
+      "question": "Tem um crescimento de receitas (Ou lucro) superior a 5% nos últimos 5 anos?",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f51"
+    },
+    {
+      "criterias": "DIVIDENDOS",
+      "question": "A empresa tem um histórico de pagamento de dividendos?",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f52"
+    },
+    {
+      "criterias": "TECNOLOGIA E PESQUISA",
+      "question": "A empresa investe amplamente em pesquisa e inovação? Setor Obsoleto = SEMPRE NÃO",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f53"
+    },
+    {
+      "criterias": "TEMPO DE MERCADO",
+      "question": "Tem mais de 30 anos de mercado? (Fundação)",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f54"
+    },
+    {
+      "criterias": "VANTAGENS COMPETITIVAS",
+      "question": "É líder nacional ou mundial no setor em que atua? (Só considera se for LÍDER, primeira colocada)",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f55"
+    },
+    {
+      "criterias": "PERENIDADE",
+      "question": "O setor em que a empresa atua tem mais de 100 anos?",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f56"
+    },
+    {
+      "criterias": "TAMANHO",
+      "question": "A empresa é uma BLUE CHIP?",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f57"
+    },
+    {
+      "criterias": "GOVERNANÇA",
+      "question": "A empresa tem uma boa gestão? Histórico de corrupção = SEMPRE NÃO",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f58"
+    },
+    {
+      "criterias": "INDEPENDÊNCIA",
+      "question": "É livre de controle ESTATAL ou concentração em cliente único?",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f59"
+    },
+    {
+      "criterias": "POUCO ENDIVIDADA",
+      "question": "Div. Líquida/EBITDA é menor que 2 nos últimos 5 anos?",
+      "diagram": "diagrama-do-cerrado",
+      "_id": "67b7f52d3b601fcda83a6f5a"
+    },
+    {
+      "criterias": "",
+      "question": "Os imóveis desse Fundo Imobiliário estão localizados em regiões nobres?",
+      "diagram": "investimentos-imobiliarios",
+      "_id": "67bd3bceee6fea8789b7c03e"
+    },
+    {
+      "criterias": "",
+      "question": "As propriedades são novas e não consomem manutenção excessiva?",
+      "diagram": "investimentos-imobiliarios",
+      "_id": "67bd3bceee6fea8789b7c03f"
+    },
+    {
+      "criterias": "",
+      "question": "O fundo imobiliário está negociado abaixo do P/VP 1? (Acima de 1,5, eu descarto o investimento em qualquer hipótese)",
+      "diagram": "investimentos-imobiliarios",
+      "_id": "67bd3bceee6fea8789b7c040"
+    },
+    {
+      "criterias": "",
+      "question": "Distribui dividendos a mais de 4 anos consistentemente?",
+      "diagram": "investimentos-imobiliarios",
+      "_id": "67bd3bceee6fea8789b7c041"
+    },
+    {
+      "criterias": "",
+      "question": "Não é dependende de um único inquilino ou imóvel?",
+      "diagram": "investimentos-imobiliarios",
+      "_id": "67bd3bceee6fea8789b7c042"
+    },
+    {
+      "criterias": "",
+      "question": "O Yield está dentro ou acima da média para fundos imobiliários do mesmo tipo?",
+      "diagram": "investimentos-imobiliarios",
+      "_id": "67bd3bceee6fea8789b7c043"
+    }
+  ],
+  "assets": [
+    {
+      "type": "acoes_nacionais",
+      "name": "VALE3",
+      "assetId": "64b858d222e40784b361020d",
+      "amount": 50,
+      "_id": "67b7f4063b601fcda83a6e5e",
+      "strength": 7,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f52",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f55",
+        "67b7f52d3b601fcda83a6f56",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f5a"
+      ],
+      "updatedAt": "2025-10-18T03:26:30.815Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 4439.5
+    },
+    {
+      "type": "acoes_nacionais",
+      "name": "BBAS3",
+      "assetId": "64b858d222e40784b36100bf",
+      "amount": 200,
+      "_id": "67b7f4383b601fcda83a6e6e",
+      "strength": 7,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f52",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f56",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f5a"
+      ],
+      "updatedAt": "2025-10-18T02:42:21.157Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 4880
+    },
+    {
+      "type": "acoes_nacionais",
+      "name": "SANB3",
+      "assetId": "64b858d222e40784b36101d4",
+      "amount": 43,
+      "_id": "67b7f4603b601fcda83a6ea2",
+      "strength": 9,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f52",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f56",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f59",
+        "67b7f52d3b601fcda83a6f5a"
+      ],
+      "updatedAt": "2025-10-18T03:26:55.270Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 677.68
+    },
+    {
+      "type": "acoes_nacionais",
+      "name": "SAPR3",
+      "assetId": "64b858d222e40784b36101d7",
+      "amount": 236,
+      "_id": "67b7f4713b601fcda83a6ebf",
+      "strength": 9,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f52",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f55",
+        "67b7f52d3b601fcda83a6f56",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f5a"
+      ],
+      "updatedAt": "2025-10-18T03:27:11.472Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 2260.88
+    },
+    {
+      "type": "acoes_nacionais",
+      "name": "HYPE3",
+      "assetId": "64b858d222e40784b3610163",
+      "amount": 61,
+      "_id": "67b7f4873b601fcda83a6ede",
+      "strength": 9,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f52",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f55",
+        "67b7f52d3b601fcda83a6f56",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f59",
+        "67b7f52d3b601fcda83a6f5a"
+      ],
+      "updatedAt": "2025-07-24T18:46:52.909Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 1426.79
+    },
+    {
+      "type": "acoes_nacionais",
+      "name": "TAEE3",
+      "assetId": "64b858d222e40784b36101ed",
+      "amount": 94,
+      "_id": "67b7f49f3b601fcda83a6ef5",
+      "strength": 7,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f52",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f55",
+        "67b7f52d3b601fcda83a6f56",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f58"
+      ],
+      "updatedAt": "2025-10-18T03:27:32.323Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 1402.48
+    },
+    {
+      "type": "acoes_nacionais",
+      "name": "TAEE4",
+      "assetId": "64b858d222e40784b36101ee",
+      "amount": 8,
+      "_id": "67b7f4b03b601fcda83a6f09",
+      "strength": -11,
+      "diagramResponses": [],
+      "updatedAt": "2025-02-27T01:15:24.574Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 122.4
+    },
+    {
+      "type": "acoes_nacionais",
+      "name": "B3SA3",
+      "assetId": "64b858d222e40784b36100ba",
+      "amount": 92,
+      "_id": "67b7f59a3b601fcda83a6f8c",
+      "strength": 9,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f55",
+        "67b7f52d3b601fcda83a6f56",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f59",
+        "67b7f52d3b601fcda83a6f5a"
+      ],
+      "updatedAt": "2025-06-26T19:41:13.447Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 1821.6000000000001
+    },
+    {
+      "type": "acoes_nacionais",
+      "name": "CXSE3",
+      "assetId": "64b858d222e40784b3611af8",
+      "amount": 88,
+      "_id": "67b7f6e93b601fcda83a7042",
+      "strength": 7,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f52",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f56",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f5a"
+      ],
+      "updatedAt": "2025-10-18T02:55:56.940Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 1661.4399999999998
+    },
+    {
+      "type": "acoes_internacionais",
+      "name": "QQQ",
+      "assetId": "64b858d222e40784b3610bee",
+      "amount": 0.13648,
+      "_id": "67bd3a51ee6fea8789b7bc5c",
+      "strength": 9,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f52",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f55",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f59",
+        "67b7f52d3b601fcda83a6f5a"
+      ],
+      "updatedAt": "2025-02-25T03:35:37.273Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 434.28321965439994
+    },
+    {
+      "type": "acoes_internacionais",
+      "name": "VNQ",
+      "assetId": "64b858d222e40784b3611af6",
+      "amount": 1.16799,
+      "_id": "67bd3a9dee6fea8789b7bd33",
+      "strength": 5,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f59",
+        "67b7f52d3b601fcda83a6f5a",
+        "67b7f52d3b601fcda83a6f56"
+      ],
+      "updatedAt": "2025-02-25T03:37:51.000Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 549.7898732386201
+    },
+    {
+      "type": "criptomoedas",
+      "name": "BTC",
+      "assetId": "64b858ce22e40784b360ffcb",
+      "amount": 0.008365,
+      "_id": "67bd3b53ee6fea8789b7bf32",
+      "strength": 10,
+      "updatedAt": "2025-10-18T03:19:39.889Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 3136.1578678975297
+    },
+    {
+      "type": "rendafixa",
+      "name": "LCI INTER 90,00",
+      "alocation": "BTG AUVP",
+      "value": 1074,
+      "_id": "67bd3d5cee6fea8789b7c284",
+      "amount": 1,
+      "strength": 8,
+      "updatedAt": "2025-07-24T18:49:29.622Z",
+      "updatedBy": "000000000000000000000001"
+    },
+    {
+      "type": "acoes_internacionais",
+      "name": "VTI",
+      "assetId": "64b858d222e40784b3611b29",
+      "amount": 0.17072,
+      "_id": "67bd3dabee6fea8789b7c327",
+      "strength": 9,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f55",
+        "67b7f52d3b601fcda83a6f56",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f59",
+        "67b7f52d3b601fcda83a6f5a"
+      ],
+      "updatedAt": "2025-02-25T03:49:20.012Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 294.23713689216004
+    },
+    {
+      "type": "acoes_internacionais",
+      "name": "VUG",
+      "assetId": "666c99d64acb1c6b42c379e1",
+      "amount": 0.27433,
+      "_id": "67bd3dd3ee6fea8789b7c3ae",
+      "strength": 7,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f56",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f59",
+        "67b7f52d3b601fcda83a6f5a",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f54"
+      ],
+      "updatedAt": "2025-02-25T03:50:16.142Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 665.1163363591603
+    },
+    {
+      "type": "acoes_internacionais",
+      "name": "INTC",
+      "assetId": "64b858d222e40784b3610863",
+      "amount": 2.4951,
+      "_id": "67c090e2c1f70bd67db18c21",
+      "strength": -3,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f58"
+      ],
+      "updatedAt": "2025-02-27T16:21:20.376Z",
+      "updatedBy": "000000000000000000000001",
+      "value": 808.8951220068
+    },
+    {
+      "type": "rendafixa",
+      "name": "TESOURO RENDA + 2065",
+      "alocation": "BTG ",
+      "strength": 9,
+      "value": 2136,
+      "_id": "67d8ac4155e7c2176a8bf0a8",
+      "amount": 1,
+      "updatedAt": "2025-07-09T14:25:54.685Z",
+      "updatedBy": "000000000000000000000001"
+    },
+    {
+      "type": "rendafixa",
+      "name": "BANCO VOITER PREFIXADO 18,50% ",
+      "alocation": "Auvp Investimentos (BTG)",
+      "value": 1173,
+      "strength": 9,
+      "_id": "683de55ee80876314d412f5c",
+      "amount": 1,
+      "updatedAt": "2025-07-24T18:49:02.246Z",
+      "updatedBy": "000000000000000000000001"
+    },
+    {
+      "type": "acoes_nacionais",
+      "name": "WEGE3",
+      "assetId": "64b858d222e40784b3610215",
+      "amount": 48,
+      "updatedBy": "000000000000000000000001",
+      "_id": "686bf8573e398c7b9bf8af81",
+      "strength": 11,
+      "diagramResponses": [
+        "67b7f52d3b601fcda83a6f50",
+        "67b7f52d3b601fcda83a6f51",
+        "67b7f52d3b601fcda83a6f53",
+        "67b7f52d3b601fcda83a6f54",
+        "67b7f52d3b601fcda83a6f55",
+        "67b7f52d3b601fcda83a6f57",
+        "67b7f52d3b601fcda83a6f58",
+        "67b7f52d3b601fcda83a6f59",
+        "67b7f52d3b601fcda83a6f5a",
+        "67b7f52d3b601fcda83a6f52",
+        "67b7f52d3b601fcda83a6f56"
+      ],
+      "updatedAt": "2025-10-18T03:28:51.796Z",
+      "value": 2387.04
+    }
+  ],
+  "migrated": false,
+  "preferences": {
+    "theme": "dark",
+    "language": "pt-br",
+    "currency": "BRL"
+  },
+  "activeModules": [
+    "orcameto",
+    "ferramentas",
+    "carteira"
+  ],
+  "products": [
+    "AUVP"
+  ],
+  "__v": 0,
+  "avatar": "https://ui-avatars.com/api/?name=Demo+User",
+  "ssoId": "00000000-0000-0000-0000-000000000001"
+}
