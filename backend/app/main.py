@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     aportes,
     catalog,
+    categories,
     diagram_questions,
     health,
     portfolios,
@@ -33,6 +34,7 @@ app.include_router(positions.router)
 app.include_router(targets.router)
 app.include_router(target_presets.router)
 app.include_router(aportes.router)
+app.include_router(categories.router)
 app.include_router(diagram_questions.router)
 app.include_router(prices.router)
 app.include_router(catalog.router)
