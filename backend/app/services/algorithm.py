@@ -32,7 +32,11 @@ from app.services.strength import DIAGRAM_FOR_CLASS, position_value
 from app.services.types import Asset, ClassType, Portfolio, Suggestion
 
 RF_TYPES: set[ClassType] = {"rendafixa", "rendafixa_internacional"}
-FRACTIONAL_SHARE_TYPES: set[ClassType] = {"acoes_internacionais", "reits"}
+FRACTIONAL_SHARE_TYPES: set[ClassType] = {
+    "acoes_internacionais",
+    "reits",
+    "etfs_internacionais",
+}
 
 # Classes whose strength is set manually by the user (no diagram). For these
 # the default of 0 means "not yet evaluated" rather than "excluded", so they
@@ -42,6 +46,11 @@ MANUAL_STRENGTH_TYPES: set[ClassType] = {
     cls for cls in ("criptomoedas", "rendafixa", "rendafixa_internacional")
     if cls not in DIAGRAM_FOR_CLASS
 }
+
+
+def _bucket(a: Asset) -> str:
+    """Grouping key: explicit category bucket, else the asset's class."""
+    return a.bucket or a.type
 
 
 def _is_allocatable(a: Asset) -> bool:
@@ -112,7 +121,7 @@ def _stage_one_inter_class(
     portfolio: Portfolio,
     new_total: float,
     aporte: float,
-) -> dict[ClassType, float]:
+) -> dict[str, float]:
     """Inter-class split.
 
     Eligible = classes with target > 0 AND at least one allocatable asset.
@@ -127,17 +136,17 @@ def _stage_one_inter_class(
     assets = portfolio.assets
     targets = portfolio.targets
 
-    eligible_classes: set[ClassType] = {a.type for a in assets if _is_allocatable(a)}
+    eligible_classes: set[str] = {_bucket(a) for a in assets if _is_allocatable(a)}
 
-    gaps: dict[ClassType, float] = {}
-    eligible_targets: dict[ClassType, float] = {}
+    gaps: dict[str, float] = {}
+    eligible_targets: dict[str, float] = {}
     for cls in eligible_classes:
         pct = targets.get(cls, 0) or 0
         if pct <= 0:
             continue
         eligible_targets[cls] = pct
         target_value = (pct / 100.0) * new_total
-        current_value = sum(position_value(a) for a in assets if a.type == cls)
+        current_value = sum(position_value(a) for a in assets if _bucket(a) == cls)
         gap = max(0.0, target_value - current_value)
         if gap > 0:
             gaps[cls] = gap
@@ -162,7 +171,7 @@ def _stage_one_inter_class(
 
 
 def _stage_two_intra_class(
-    class_share: dict[ClassType, float],
+    class_share: dict[str, float],
     all_assets: list[Asset],
 ) -> dict[str, float]:
     """Intra-class split.
@@ -178,7 +187,7 @@ def _stage_two_intra_class(
     out: dict[str, float] = {}
 
     for cls, share in class_share.items():
-        allocatable = [a for a in all_assets if a.type == cls and _is_allocatable(a)]
+        allocatable = [a for a in all_assets if _bucket(a) == cls and _is_allocatable(a)]
         if not allocatable:
             continue
 
