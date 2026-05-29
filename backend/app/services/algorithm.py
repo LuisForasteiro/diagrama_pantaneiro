@@ -154,7 +154,7 @@ def _stage_one_inter_class(
     if total_gap >= aporte:
         return {cls: aporte * (g / total_gap) for cls, g in gaps.items()}
 
-    shares: dict[ClassType, float] = dict(gaps)
+    shares: dict[str, float] = dict(gaps)
     excess = aporte - total_gap
     for cls, pct in eligible_targets.items():
         shares[cls] = shares.get(cls, 0.0) + excess * (pct / total_pct)
