@@ -15,6 +15,10 @@ class Category(Base):
     `parent_id IS NULL` = grupo (nível 1); preenchido = subgrupo (nível 2).
     Pesos são relativos aos irmãos (somam 100 por nível). Independente de
     `asset_type` (que segue cuidando de preço/diagrama/força).
+
+    Apagar um grupo (nível 1) cascateia para seus subgrupos (parent_id CASCADE);
+    posições sob eles ficam com category_id = NULL (positions.category_id usa
+    ON DELETE SET NULL).
     """
 
     __tablename__ = "categories"

@@ -16,6 +16,7 @@ from app.models.diagram_question import DiagramQuestion  # noqa: F401
 from app.models.aporte_event import AporteEvent  # noqa: F401
 from app.models.aporte_allocation import AporteAllocation  # noqa: F401
 from app.models.target_preset import TargetPreset  # noqa: F401
+from app.models.category import Category  # noqa: F401
 
 config = context.config
 
