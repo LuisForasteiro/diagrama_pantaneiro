@@ -82,3 +82,46 @@ async def test_search_unsupported_type_returns_empty(client: AsyncClient) -> Non
     )
     assert r.status_code == 200
     assert r.json() == []
+
+
+from app.models.ticker_catalog import TickerCatalog
+
+
+async def _seed_catalog(session_maker) -> None:
+    async with session_maker() as session:
+        session.add_all(
+            [
+                TickerCatalog(symbol="PETR3", source="b3"),
+                TickerCatalog(symbol="PETR4", source="b3"),
+                TickerCatalog(symbol="VALE3", source="b3"),
+                TickerCatalog(
+                    symbol="BTC", name="Bitcoin", source="crypto", external_id="bitcoin"
+                ),
+            ]
+        )
+        await session.commit()
+
+
+async def test_search_uses_local_b3_catalog(client, session_maker) -> None:
+    await _seed_catalog(session_maker)
+    token = await _register_and_login(client, "cat-local-b3@example.com")
+    r = await client.get(
+        "/api/catalog/search?type=acoes_nacionais&q=petr",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    names = sorted(c["name"] for c in r.json())
+    assert names == ["PETR3", "PETR4"]
+
+
+async def test_search_uses_local_crypto_catalog(client, session_maker) -> None:
+    await _seed_catalog(session_maker)
+    token = await _register_and_login(client, "cat-local-cg@example.com")
+    r = await client.get(
+        "/api/catalog/search?type=criptomoedas&q=bit",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body[0]["name"] == "BTC"
+    assert body[0]["label"] == "Bitcoin"
