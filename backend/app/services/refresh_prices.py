@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -12,7 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.market_data.base import AdapterError
 from app.market_data.registry import adapter_for_asset_type
+from app.models.portfolio import Portfolio
 from app.models.position import Position
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -71,3 +75,18 @@ async def refresh_portfolio_prices(
     await asyncio.gather(*(refresh_one(p) for p in positions))
     await session.commit()
     return result
+
+
+async def refresh_all_portfolios(session: AsyncSession) -> int:
+    """Refresh every portfolio in the DB. Used by the scheduled daily job.
+    A failure in one portfolio is logged and skipped, never aborting the rest.
+    Returns the total number of positions refreshed across all portfolios."""
+    portfolios = (await session.execute(select(Portfolio))).scalars().all()
+    total = 0
+    for pf in portfolios:
+        try:
+            res = await refresh_portfolio_prices(session, pf.id)
+            total += res.refreshed
+        except Exception:
+            logger.exception("price refresh failed for portfolio %s", pf.id)
+    return total
