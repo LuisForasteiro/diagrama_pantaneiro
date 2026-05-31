@@ -1,3 +1,7 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,8 +17,25 @@ from app.api import (
     targets,
 )
 from app.api.auth import build_auth_routers
+from app.core.config import get_settings
+from app.scheduler import build_scheduler, run_startup_jobs
 
-app = FastAPI(title="Diagrama do Cerrado API", version="0.1.0")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler = build_scheduler(get_settings())
+    scheduler.start()
+    # Non-blocking startup jobs so boot isn't delayed by network I/O.
+    asyncio.create_task(run_startup_jobs())
+    try:
+        yield
+    finally:
+        scheduler.shutdown(wait=False)
+
+
+app = FastAPI(title="Diagrama do Cerrado API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

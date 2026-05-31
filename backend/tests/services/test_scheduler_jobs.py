@@ -59,3 +59,12 @@ async def test_refresh_all_portfolios_updates_every_portfolio(session_maker) -> 
             await session.execute(select(Position).where(Position.portfolio_id == pid))
         ).scalars().all()
     assert pos[0].current_price == 10.0
+
+
+def test_build_scheduler_registers_two_jobs() -> None:
+    from app.core.config import Settings
+    from app.scheduler import build_scheduler
+
+    sched = build_scheduler(Settings(jwt_secret="x"))
+    ids = {j.id for j in sched.get_jobs()}
+    assert ids == {"refresh_prices", "sync_catalog"}
