@@ -32,7 +32,14 @@ from app.services.strength import DIAGRAM_FOR_CLASS, position_value
 from app.services.types import Asset, ClassType, Portfolio, Suggestion
 
 RF_TYPES: set[ClassType] = {"rendafixa", "rendafixa_internacional"}
-FRACTIONAL_SHARE_TYPES: set[ClassType] = {"acoes_internacionais", "reits"}
+# US brokers (Avenue/Nomad) settle these in fractional units. BR ETFs
+# (etfs_nacionais) trade in whole units on B3, so they stay whole like
+# acoes_nacionais.
+FRACTIONAL_SHARE_TYPES: set[ClassType] = {
+    "acoes_internacionais",
+    "reits",
+    "etfs_internacionais",
+}
 
 # Classes whose strength is set manually by the user (no diagram). For these
 # the default of 0 means "not yet evaluated" rather than "excluded", so they

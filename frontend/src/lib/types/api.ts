@@ -19,6 +19,7 @@ export interface PositionOut {
   id: string;
   name: string;
   assetType: string;
+  effectiveClass: string | null;
   amount: number;
   currentPrice: number | null;
   currentValueBrl: number;
@@ -57,6 +58,7 @@ export interface AporteEventOut {
 export interface PositionCreate {
   name: string;
   assetType: string;
+  effectiveClass?: string | null;
   amount: number;
   currentPrice?: number | null;
   strength: number;
@@ -68,6 +70,7 @@ export interface PositionUpdate {
   currentPrice?: number | null;
   strength?: number;
   diagramResponses?: string[] | null;
+  effectiveClass?: string | null;
 }
 
 export interface DiagramQuestionOut {

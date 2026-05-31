@@ -134,7 +134,7 @@
 </script>
 
 <div
-  class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4"
+  class="backdrop"
   role="presentation"
   onclick={(e) => {
     if (e.target === e.currentTarget) onclose();
@@ -144,52 +144,51 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="edit-targets-title"
-    class="w-full max-w-md rounded bg-white p-5 shadow-xl"
+    class="modal pant-panel"
   >
-    <div class="mb-3 flex items-center justify-between">
-      <h2 id="edit-targets-title" class="text-base font-semibold">Edit targets</h2>
+    <div class="pant-bracket pant-bracket-tl"></div>
+    <div class="pant-bracket pant-bracket-tr"></div>
+    <div class="pant-bracket pant-bracket-bl"></div>
+    <div class="pant-bracket pant-bracket-br"></div>
+
+    <header class="modal-head">
+      <h2 id="edit-targets-title" class="pant-panel-title">── editar_metas ──</h2>
       <button
         type="button"
-        class="rounded px-2 py-1 text-slate-500 hover:bg-slate-100"
-        aria-label="Close"
+        class="close-btn"
+        aria-label="Fechar"
         onclick={onclose}
       >×</button>
-    </div>
+    </header>
 
-    <div class="mb-3">
-      <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        Presets
-      </div>
+    <div class="section">
+      <span class="pant-label-text">── presets ──</span>
       {#if presetsLoading}
-        <p class="text-sm text-slate-400">Carregando…</p>
+        <p class="pant-loading">carregando…</p>
       {:else}
         {#if presets.length === 0 && !addingPreset}
-          <p class="mb-1 text-sm text-slate-400">
-            Nenhum preset salvo.
-          </p>
+          <p class="ink-muted preset-empty">› nenhum preset salvo.</p>
         {/if}
-        <div class="flex flex-wrap items-center gap-1.5">
+        <div class="preset-chips">
           {#each presets as p (p.id)}
-            <div
-              class="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-sm"
-            >
+            <div class="chip">
               <button
                 type="button"
-                class="max-w-[10rem] truncate hover:underline"
+                class="chip-apply"
                 title={p.name}
                 onclick={() => applyPreset(p)}
               >{p.name}</button>
               {#if confirmRemoveId === p.id}
                 <button
                   type="button"
-                  class="text-xs text-red-700 hover:underline"
+                  class="chip-confirm"
                   onclick={() => confirmRemove(p.id)}
-                >Remove?</button>
+                >remover?</button>
               {:else}
                 <button
                   type="button"
-                  class="text-slate-400 hover:text-red-600"
-                  aria-label="Remove preset {p.name}"
+                  class="chip-x"
+                  aria-label="Remover preset {p.name}"
                   onclick={() => startRemove(p.id)}
                 >×</button>
               {/if}
@@ -198,48 +197,57 @@
           {#if !addingPreset}
             <button
               type="button"
-              class="rounded border border-dashed border-slate-300 px-2 py-0.5 text-sm text-slate-600 hover:bg-slate-50"
-              onclick={() => { addingPreset = true; newError = null; }}
-            >+ Novo</button>
+              class="chip-add"
+              onclick={() => {
+                addingPreset = true;
+                newError = null;
+              }}
+            >+ novo</button>
           {/if}
         </div>
       {/if}
 
       {#if addingPreset}
-        <div class="mt-2 flex items-center gap-2">
+        <div class="preset-add">
           <input
             type="text"
             maxlength="48"
-            placeholder="Nome do preset"
+            placeholder="nome do preset"
             bind:value={newName}
-            class="flex-1 rounded border border-slate-300 px-2 py-1 text-sm"
+            class="pant-input"
           />
           <button
             type="button"
-            class="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white disabled:bg-slate-300"
+            class="pant-btn pant-btn-accent"
             disabled={!sumOk || !newName.trim()}
             title={!sumOk ? "Os valores precisam somar 100%" : ""}
             onclick={saveNewPreset}
-          >Salvar</button>
+          >salvar</button>
           <button
             type="button"
-            class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100"
-            onclick={() => { addingPreset = false; newName = ""; newError = null; }}
-          >Cancelar</button>
+            class="pant-btn"
+            onclick={() => {
+              addingPreset = false;
+              newName = "";
+              newError = null;
+            }}
+          >cancelar</button>
         </div>
         {#if newError}
-          <p class="mt-1 text-xs text-red-700">{newError}</p>
+          <p class="pant-toast pant-toast-err">
+            <span class="pant-prompt">!</span> {newError}
+          </p>
         {/if}
       {/if}
     </div>
 
-    <hr class="my-3 border-slate-200" />
+    <div class="pant-hr">┼──────────────────────────────</div>
 
-    <div class="space-y-2">
+    <div class="targets-grid">
       {#each CLASS_ORDER as cls (cls)}
-        <label class="flex items-center justify-between gap-3 text-sm">
-          <span class="text-slate-700">{CLASS_LABELS[cls]}</span>
-          <span class="flex items-center gap-1">
+        <label class="trow">
+          <span class="trow-label">{CLASS_LABELS[cls]}</span>
+          <span class="trow-input">
             <input
               type="number"
               min="0"
@@ -248,44 +256,199 @@
               inputmode="numeric"
               value={values[cls]}
               oninput={(e) => handleInput(cls, (e.currentTarget as HTMLInputElement).value)}
-              class="w-16 rounded border border-slate-300 px-2 py-1 text-right tabular-nums"
+              class="pant-input pant-tab-nums target-num"
               data-testid="target-input-{cls}"
             />
-            <span class="text-slate-400">%</span>
+            <span class="ink-muted">%</span>
           </span>
         </label>
       {/each}
     </div>
 
-    <hr class="my-3 border-slate-200" />
+    <div class="pant-hr">┼──────────────────────────────</div>
 
-    <div class="flex items-center justify-between">
+    <div class="modal-foot">
       <p
-        class="text-sm tabular-nums"
-        class:text-emerald-600={sumOk}
-        class:text-red-600={!sumOk}
+        class="pant-tab-nums total"
+        class:total-ok={sumOk}
+        class:total-bad={!sumOk}
         data-testid="total-indicator"
       >
         Total: {sum}% / 100%
       </p>
-      <div class="flex gap-2">
+      <div class="pant-form-actions foot-actions">
+        <button type="button" class="pant-btn" onclick={onclose}>cancelar</button>
         <button
           type="button"
-          class="rounded bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-300"
-          onclick={onclose}
-        >Cancel</button>
-        <button
-          type="button"
-          class="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-300"
+          class="pant-btn pant-btn-accent"
           disabled={!sumOk || saving}
           onclick={save}
           data-testid="save-button"
-        >{saving ? "Saving…" : "Save"}</button>
+        >{saving ? "› salvando…" : "› salvar"}</button>
       </div>
     </div>
 
     {#if serverError}
-      <p class="mt-2 rounded bg-red-50 px-2 py-1 text-xs text-red-700">{serverError}</p>
+      <p class="pant-toast pant-toast-err foot-err">
+        <span class="pant-prompt">!</span> {serverError}
+      </p>
     {/if}
   </div>
 </div>
+
+<style>
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(7, 16, 14, 0.75); /* var(--bg) with alpha */
+    backdrop-filter: blur(2px);
+  }
+  .modal {
+    width: 100%;
+    max-width: 420px;
+    margin: 0;
+    padding: 20px 22px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .close-btn {
+    background: transparent;
+    border: none;
+    color: var(--ink-muted);
+    font: inherit;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 6px;
+    line-height: 1;
+  }
+  .close-btn:hover { color: var(--accent); }
+
+  .section { margin-bottom: 8px; }
+  .preset-empty {
+    margin: 6px 0 0;
+    font-size: 12px;
+  }
+  .preset-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--hairline);
+    background: var(--surface-raised);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+  .chip-apply {
+    background: transparent;
+    border: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+    padding: 3px 8px;
+    cursor: pointer;
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chip-apply:hover { color: var(--accent); }
+  .chip-x {
+    background: transparent;
+    border: none;
+    color: var(--ink-muted);
+    font: inherit;
+    font-size: 14px;
+    padding: 3px 8px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .chip-x:hover { color: var(--negative); }
+  .chip-confirm {
+    background: transparent;
+    border: none;
+    color: var(--negative);
+    font: inherit;
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .chip-confirm:hover { text-decoration: underline; }
+  .chip-add {
+    background: transparent;
+    border: 1px dashed var(--hairline-strong);
+    color: var(--ink-dim);
+    font: inherit;
+    font-size: 12px;
+    padding: 3px 10px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .chip-add:hover {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+
+  .preset-add {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .preset-add .pant-input { flex: 1; padding: 5px 8px; font-size: 12px; }
+
+  .targets-grid {
+    display: grid;
+    gap: 6px;
+  }
+  .trow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+  }
+  .trow-label { color: var(--ink); }
+  .trow-input {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .target-num {
+    width: 64px;
+    padding: 4px 8px;
+    font-size: 12px;
+    text-align: right;
+  }
+
+  .modal-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .total {
+    font-size: 13px;
+    margin: 0;
+    font-weight: 700;
+  }
+  .total-ok { color: var(--positive); }
+  .total-bad { color: var(--negative); }
+  .foot-actions { margin-top: 0; }
+  .foot-err { margin-top: 10px; margin-bottom: 0; }
+</style>

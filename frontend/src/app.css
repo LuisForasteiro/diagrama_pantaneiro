@@ -92,3 +92,238 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 1px var(--accent-dim);
 }
 select option { background: var(--surface); color: var(--ink); }
+
+/* ═════════════════════════════════════════════════════════════
+ * Pantaneira design system — shared classes used across all pages.
+ * Single source of truth. Page-specific CSS lives in scoped <style>.
+ * Anything you'd repeat in more than one route belongs here.
+ * ═════════════════════════════════════════════════════════════ */
+
+/* Ink colors (semantic text shades) */
+.ink { color: var(--ink); }
+.ink-dim { color: var(--ink-dim); }
+.ink-muted { color: var(--ink-muted); }
+.ink-pos { color: var(--positive); }
+.ink-neg { color: var(--negative); }
+.tab-nums { font-variant-numeric: tabular-nums; }
+
+/* Page wrapper (consistent gutter + max width) */
+.pant-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 28px 96px;
+  color: var(--ink);
+}
+.pant-wrap--narrow { max-width: 720px; }
+.pant-wrap--center {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+}
+
+/* Topbar (brand + nav) */
+.pant-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  margin-bottom: 20px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.pant-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+.pant-brand-logo { height: 56px; width: auto; display: block; }
+.pant-brand-name { color: var(--accent); font-weight: 700; letter-spacing: 0.05em; }
+.pant-prompt { color: var(--accent); font-weight: 700; }
+.pant-sep { color: var(--ink-muted); }
+.pant-user, .pant-title { color: var(--ink-dim); }
+.pant-nav { display: flex; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; }
+
+/* Buttons */
+.pant-btn {
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: var(--ink-dim);
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 120ms, border-color 120ms, background 120ms;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pant-btn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: #14201a;
+}
+.pant-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pant-btn-accent {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+.pant-btn-accent:hover:not(:disabled) { background: #f59640; color: var(--bg); }
+.pant-btn-ghost { border-color: var(--hairline-strong); }
+.pant-btn-danger { color: var(--negative); border-color: #3a1a1a; }
+.pant-btn-danger:hover:not(:disabled) {
+  background: #1a0e0e;
+  color: var(--negative);
+  border-color: var(--negative);
+}
+.pant-btn-wide { width: 100%; justify-content: center; padding: 8px 12px; font-size: 13px; }
+
+/* Panels with corner brackets */
+.pant-panel {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  padding: 28px 24px;
+  margin-bottom: 20px;
+}
+.pant-bracket {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+.pant-bracket-tl { top: -1px; left: -1px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.pant-bracket-tr { top: -1px; right: -1px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.pant-bracket-bl { bottom: -1px; left: -1px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.pant-bracket-br { bottom: -1px; right: -1px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+.pant-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pant-panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-dim);
+  margin: 0;
+}
+.pant-panel-sub { font-size: 11px; letter-spacing: 0.05em; color: var(--ink-muted); }
+
+/* Toast / loading */
+.pant-toast {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--positive);
+  font-size: 12px;
+}
+.pant-toast-err { color: var(--negative); border-color: #3a1a1a; }
+.pant-loading { color: var(--ink-dim); font-size: 13px; padding: 20px 4px; }
+.pant-blink { color: var(--accent); animation: pant-blink 1s steps(1) infinite; }
+@keyframes pant-blink { 50% { opacity: 0; } }
+
+/* Reveal animation */
+.pant-reveal {
+  animation: pant-fade-up 600ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
+  animation-delay: var(--delay, 0ms);
+}
+@keyframes pant-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ASCII separator */
+.pant-hr {
+  color: var(--hairline-strong);
+  font-size: 12px;
+  margin: 18px 0 14px;
+  overflow: hidden;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Form labels (used in /home/new, /home/[id], login, register) */
+.pant-label {
+  display: block;
+  margin-bottom: 14px;
+}
+.pant-label-text {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.pant-label-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-top: 4px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+.pant-input {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+/* Form section (small narrow forms — login, register, add position) */
+.pant-form { display: grid; gap: 4px; }
+.pant-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* Grid table (positions, history, aporte) */
+.pant-grid {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.pant-grid thead { display: table-header-group; }
+.pant-grid tbody { display: table-row-group; }
+.pant-grid tr { display: table-row; }
+.pant-grid th, .pant-grid td { display: table-cell; }
+.pant-grid thead th {
+  text-align: left;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--ink-muted);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--hairline-strong);
+}
+.pant-grid tbody td {
+  padding: 10px;
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: middle;
+}
+.pant-grid tbody tr:hover td { background: var(--surface-raised); }
+.pant-grid .pant-col-num { text-align: right; }
+.pant-grid thead th.pant-col-num { text-align: right; }
+.pant-grid .pant-val { color: var(--ink); font-weight: 700; }

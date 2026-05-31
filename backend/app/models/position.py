@@ -21,6 +21,9 @@ class Position(Base):
 
     name: Mapped[str] = mapped_column(String(128))
     asset_type: Mapped[str] = mapped_column(String(48), index=True)
+    # Semantic override: when set, algorithm/metas/donut treat the position as
+    # this class. asset_type stays for price-routing (market_data/registry.py).
+    effective_class: Mapped[str | None] = mapped_column(String(48), nullable=True)
     amount: Mapped[float] = mapped_column(Float)
     current_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     strength: Mapped[int] = mapped_column(Integer)

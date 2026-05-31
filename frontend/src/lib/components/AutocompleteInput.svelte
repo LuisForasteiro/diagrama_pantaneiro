@@ -80,7 +80,7 @@
   }
 </script>
 
-<div class="relative">
+<div class="ac-wrap">
   <input
     type="text"
     {value}
@@ -90,37 +90,31 @@
     onkeydown={handleKeydown}
     onblur={handleBlur}
     onfocus={handleFocus}
-    class="mt-1 block w-full rounded border-slate-300 px-3 py-2"
+    class="pant-input"
   />
 
   {#if loading}
-    <span
-      class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"
-    >
-      …
-    </span>
+    <span class="ac-loading">…</span>
   {/if}
 
   {#if open && suggestions.length > 0}
-    <ul
-      class="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded border border-slate-200 bg-white shadow-md"
-    >
+    <ul class="ac-list">
       {#each suggestions as c, i (c.name + i)}
         <li>
           <button
             type="button"
             onmousedown={() => pick(c)}
-            class="flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50"
-            class:bg-slate-100={i === highlighted}
+            class="ac-item"
+            class:hl={i === highlighted}
           >
-            <span class="flex-1">
+            <span class="ac-name">
               <strong>{c.name}</strong>
               {#if c.label && c.label !== c.name}
-                <span class="text-slate-500"> — {c.label}</span>
+                <span class="ink-dim"> — {c.label}</span>
               {/if}
             </span>
             {#if c.currentPriceBrl != null}
-              <span class="shrink-0 tabular-nums text-xs text-slate-500">
+              <span class="ac-price pant-tab-nums">
                 {c.currentPriceBrl.toLocaleString("pt-BR", {
                   style: "currency",
                   currency: "BRL",
@@ -133,3 +127,56 @@
     </ul>
   {/if}
 </div>
+
+<style>
+  .ac-wrap { position: relative; }
+  .ac-loading {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--ink-muted);
+  }
+  .ac-list {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    z-index: 10;
+    max-height: 260px;
+    overflow-y: auto;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    background: var(--surface);
+    border: 1px solid var(--hairline-strong);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  }
+  .ac-item {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--hairline);
+    color: var(--ink-dim);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    letter-spacing: 0.02em;
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.hl {
+    color: var(--accent);
+    background: #14201a;
+  }
+  .ac-name strong { color: var(--ink); }
+  .ac-item:hover .ac-name strong,
+  .ac-item.hl .ac-name strong { color: var(--accent); }
+  .ac-price { color: var(--ink-muted); font-size: 11px; flex-shrink: 0; }
+</style>

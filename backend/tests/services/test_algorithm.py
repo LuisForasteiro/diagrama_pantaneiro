@@ -9,7 +9,7 @@ from collections import defaultdict
 import pytest
 
 from app.services.algorithm import compute_suggestions
-from app.services.types import Portfolio, Suggestion
+from app.services.types import Portfolio
 
 from .conftest import load_expected, normalize_asset_type
 

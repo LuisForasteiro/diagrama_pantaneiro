@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from app.services.types import Asset, Portfolio, Question, Suggestion
+from app.services.types import Asset, Portfolio, Question
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 RF_TYPES = {"rendafixa", "rendafixa_internacional"}

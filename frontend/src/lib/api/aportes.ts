@@ -21,3 +21,12 @@ export const applyAllocation = (
     `/aportes/${eventId}/allocations/${allocationId}/apply`,
     { method: "POST", body: JSON.stringify(body) },
   );
+
+export const deleteAporte = (eventId: string) =>
+  apiRequest<void>(`/aportes/${eventId}`, { method: "DELETE" });
+
+export const deleteAllocation = (eventId: string, allocationId: string) =>
+  apiRequest<AporteEventOut>(
+    `/aportes/${eventId}/allocations/${allocationId}`,
+    { method: "DELETE" },
+  );

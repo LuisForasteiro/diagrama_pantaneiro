@@ -17,6 +17,8 @@
       return "diagrama-do-cerrado";
     if (t === "fundos_imobiliarios" || t === "reits")
       return "investimentos-imobiliarios";
+    if (t === "etfs_nacionais" || t === "etfs_internacionais")
+      return "diagrama-etfs";
     return null;
   }
 
@@ -93,7 +95,9 @@
       <h3 class="text-sm font-semibold">
         Pontuação ({diagramType === "diagrama-do-cerrado"
           ? "Diagrama Pantaneiro"
-          : "Investimentos Imobiliários"})
+          : diagramType === "investimentos-imobiliarios"
+            ? "Investimentos Imobiliários"
+            : "Diagrama de ETFs"})
       </h3>
       <span class="text-sm tabular-nums">
         <span class="text-slate-500">{yesCount}/{questions.length} sim ·</span>

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 from httpx import AsyncClient
 
 
@@ -45,8 +44,10 @@ async def test_put_targets_happy_path(client: AsyncClient) -> None:
 
     body = {
         "targets": [
-            {"assetType": "acoes_nacionais", "targetPercentage": 40},
+            {"assetType": "acoes_nacionais", "targetPercentage": 30},
             {"assetType": "acoes_internacionais", "targetPercentage": 10},
+            {"assetType": "etfs_nacionais", "targetPercentage": 5},
+            {"assetType": "etfs_internacionais", "targetPercentage": 5},
             {"assetType": "fundos_imobiliarios", "targetPercentage": 15},
             {"assetType": "reits", "targetPercentage": 5},
             {"assetType": "criptomoedas", "targetPercentage": 10},
@@ -57,8 +58,9 @@ async def test_put_targets_happy_path(client: AsyncClient) -> None:
     r = await client.put("/api/targets", json=body, headers=headers)
     assert r.status_code == 200
     returned = {t["assetType"]: t["targetPercentage"] for t in r.json()}
-    assert returned["acoes_nacionais"] == 40
+    assert returned["acoes_nacionais"] == 30
     assert returned["fundos_imobiliarios"] == 15
+    assert returned["etfs_nacionais"] == 5
     assert sum(returned.values()) == 100
 
     r2 = await client.get("/api/targets", headers=headers)
@@ -71,8 +73,10 @@ async def test_put_targets_rejects_sum_not_100(client: AsyncClient) -> None:
     headers = {"Authorization": f"Bearer {token}"}
     body = {
         "targets": [
-            {"assetType": "acoes_nacionais", "targetPercentage": 40},
+            {"assetType": "acoes_nacionais", "targetPercentage": 30},
             {"assetType": "acoes_internacionais", "targetPercentage": 10},
+            {"assetType": "etfs_nacionais", "targetPercentage": 5},
+            {"assetType": "etfs_internacionais", "targetPercentage": 5},
             {"assetType": "fundos_imobiliarios", "targetPercentage": 15},
             {"assetType": "reits", "targetPercentage": 5},
             {"assetType": "criptomoedas", "targetPercentage": 10},
@@ -89,8 +93,10 @@ async def test_put_targets_rejects_decimal(client: AsyncClient) -> None:
     headers = {"Authorization": f"Bearer {token}"}
     body = {
         "targets": [
-            {"assetType": "acoes_nacionais", "targetPercentage": 40.5},
+            {"assetType": "acoes_nacionais", "targetPercentage": 30.5},
             {"assetType": "acoes_internacionais", "targetPercentage": 9.5},
+            {"assetType": "etfs_nacionais", "targetPercentage": 5},
+            {"assetType": "etfs_internacionais", "targetPercentage": 5},
             {"assetType": "fundos_imobiliarios", "targetPercentage": 15},
             {"assetType": "reits", "targetPercentage": 5},
             {"assetType": "criptomoedas", "targetPercentage": 10},
@@ -109,6 +115,8 @@ async def test_put_targets_rejects_duplicate_class(client: AsyncClient) -> None:
         "targets": [
             {"assetType": "acoes_nacionais", "targetPercentage": 50},
             {"assetType": "acoes_nacionais", "targetPercentage": 50},
+            {"assetType": "etfs_nacionais", "targetPercentage": 0},
+            {"assetType": "etfs_internacionais", "targetPercentage": 0},
             {"assetType": "fundos_imobiliarios", "targetPercentage": 0},
             {"assetType": "reits", "targetPercentage": 0},
             {"assetType": "criptomoedas", "targetPercentage": 0},
@@ -138,7 +146,9 @@ async def test_put_targets_idempotent(client: AsyncClient) -> None:
     body = {
         "targets": [
             {"assetType": "acoes_nacionais", "targetPercentage": 20},
-            {"assetType": "acoes_internacionais", "targetPercentage": 20},
+            {"assetType": "acoes_internacionais", "targetPercentage": 10},
+            {"assetType": "etfs_nacionais", "targetPercentage": 5},
+            {"assetType": "etfs_internacionais", "targetPercentage": 5},
             {"assetType": "fundos_imobiliarios", "targetPercentage": 10},
             {"assetType": "reits", "targetPercentage": 10},
             {"assetType": "criptomoedas", "targetPercentage": 10},
@@ -151,7 +161,7 @@ async def test_put_targets_idempotent(client: AsyncClient) -> None:
 
     r = await client.get("/api/targets", headers=headers)
     rows = r.json()
-    assert len(rows) == 7
+    assert len(rows) == 9
 
 
 async def test_put_targets_requires_auth(client: AsyncClient) -> None:

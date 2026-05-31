@@ -18,6 +18,11 @@ from app.models.position import Position
 from app.services.algorithm import compute_suggestions
 from app.services.portfolio_loader import load_portfolio
 
+
+class AporteHasAppliedError(Exception):
+    """Raised when trying to mutate an event whose allocations were already
+    applied. The API layer maps this to HTTP 409."""
+
 RF_TYPES = {"rendafixa", "rendafixa_internacional"}
 
 
@@ -106,3 +111,52 @@ async def apply_allocation(
     alloc.applied_value_brl = value
     alloc.applied_quantity = quantity
     return alloc
+
+
+async def recompute_event_excluding(
+    session: AsyncSession,
+    event: AporteEvent,
+    user_id: uuid.UUID,
+    excluded_position_ids: set[uuid.UUID],
+) -> AporteEvent:
+    """Recompute an aporte event's allocations, ignoring the given positions.
+
+    Used when the user opts out of one of the suggested allocations within
+    the same event (e.g., a Tesouro title that no longer exists). All
+    existing allocations are dropped and replaced with the result of
+    `compute_suggestions(portfolio_minus_excluded, event.aporte_value_brl)`.
+
+    Raises AporteHasAppliedError if any allocation in the event has already
+    been applied — partial-apply mixed with partial-edit is intentionally
+    out of scope (callers must decide before applying anything).
+    """
+    if any(a.applied for a in event.allocations):
+        raise AporteHasAppliedError
+
+    portfolio = await load_portfolio(
+        session,
+        user_id,
+        event.portfolio_id,
+        exclude_position_ids=excluded_position_ids,
+    )
+    suggestions = compute_suggestions(portfolio, event.aporte_value_brl)
+
+    for alloc in list(event.allocations):
+        await session.delete(alloc)
+    await session.flush()
+
+    for s in suggestions:
+        session.add(
+            AporteAllocation(
+                aporte_event_id=event.id,
+                position_id=uuid.UUID(s.asset_id),
+                position_name_snapshot=s.asset_name,
+                asset_type_snapshot=s.asset_type,
+                price_at_aporte_brl=s.current_price,
+                suggested_value_brl=s.suggestion_value,
+                suggested_quantity=s.suggestion_quantity,
+            )
+        )
+    await session.flush()
+    await session.refresh(event, ["allocations"])
+    return event

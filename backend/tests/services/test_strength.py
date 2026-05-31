@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from app.services.strength import compute_strength
 from app.services.types import Portfolio

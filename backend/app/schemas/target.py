@@ -6,11 +6,12 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
-from app.services.types import ClassType
 
 ALL_CLASS_TYPES: tuple[str, ...] = (
     "acoes_nacionais",
     "acoes_internacionais",
+    "etfs_nacionais",
+    "etfs_internacionais",
     "fundos_imobiliarios",
     "reits",
     "criptomoedas",
@@ -52,16 +53,17 @@ class TargetsUpdateBody(BaseModel):
 
     @field_validator("targets")
     @classmethod
-    def _all_seven_and_sum_100(
+    def _all_classes_and_sum_100(
         cls, v: list[TargetUpdateIn]
     ) -> list[TargetUpdateIn]:
-        if len(v) != 7:
-            raise ValueError("exactly 7 target entries required")
+        expected = len(ALL_CLASS_TYPES)
+        if len(v) != expected:
+            raise ValueError(f"exactly {expected} target entries required")
         types_seen = [t.asset_type for t in v]
-        if len(set(types_seen)) != 7:
+        if len(set(types_seen)) != expected:
             raise ValueError("duplicate asset_type entries")
         if set(types_seen) != set(ALL_CLASS_TYPES):
-            raise ValueError("targets must cover all 7 asset classes")
+            raise ValueError("targets must cover all asset classes")
         if sum(t.target_percentage for t in v) != 100:
             raise ValueError("target percentages must sum to 100")
         return v
@@ -85,7 +87,7 @@ class PresetIn(BaseModel):
     @classmethod
     def _values_shape(cls, v: dict[str, int]) -> dict[str, int]:
         if set(v.keys()) != set(ALL_CLASS_TYPES):
-            raise ValueError("values must cover exactly the 7 asset classes")
+            raise ValueError("values must cover exactly the asset classes")
         for k, pct in v.items():
             if not isinstance(pct, int) or isinstance(pct, bool):
                 raise ValueError(f"values[{k}] must be an integer")

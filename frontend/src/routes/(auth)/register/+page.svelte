@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
 
   import { register } from "$lib/api/auth";
+  import Panel from "$lib/components/Panel.svelte";
 
   let email = $state("");
   let password = $state("");
@@ -23,44 +24,94 @@
   }
 </script>
 
-<section class="mx-auto mt-16 max-w-sm p-6">
-  <h1 class="mb-6 text-2xl font-bold">Criar conta</h1>
+<section class="pant-wrap--center">
+  <div class="auth-frame">
+    <header class="auth-brand">
+      <img src="/logo.png" alt="diagrama_pantaneiro" class="brand-logo" />
+      <p class="brand-name">
+        <span class="pant-prompt">$</span>
+        diagrama_pantaneiro
+      </p>
+    </header>
 
-  <form onsubmit={handleSubmit} class="space-y-4">
-    <label class="block">
-      <span class="text-sm text-slate-700">E-mail</span>
-      <input
-        type="email"
-        required
-        bind:value={email}
-        class="mt-1 block w-full rounded border-slate-300 px-3 py-2"
-      />
-    </label>
-    <label class="block">
-      <span class="text-sm text-slate-700">Senha</span>
-      <input
-        type="password"
-        required
-        minlength="8"
-        bind:value={password}
-        class="mt-1 block w-full rounded border-slate-300 px-3 py-2"
-      />
-    </label>
+    <Panel title="── criar_conta ──" delay={0}>
+      <form onsubmit={handleSubmit} class="pant-form">
+        <label class="pant-label">
+          <span class="pant-label-text">E-mail</span>
+          <input
+            type="email"
+            required
+            bind:value={email}
+            class="pant-input"
+            autocomplete="email"
+          />
+        </label>
+        <label class="pant-label">
+          <span class="pant-label-text">Senha</span>
+          <span class="pant-label-hint">mínimo 8 caracteres</span>
+          <input
+            type="password"
+            required
+            minlength="8"
+            bind:value={password}
+            class="pant-input"
+            autocomplete="new-password"
+          />
+        </label>
 
-    {#if error}
-      <p class="text-sm text-red-600">{error}</p>
-    {/if}
+        {#if error}
+          <p class="pant-toast pant-toast-err">
+            <span class="pant-prompt">!</span> {error}
+          </p>
+        {/if}
 
-    <button
-      type="submit"
-      disabled={submitting}
-      class="w-full rounded bg-slate-900 px-4 py-2 font-medium text-white disabled:opacity-50"
-    >
-      {submitting ? "Criando…" : "Criar conta"}
-    </button>
-  </form>
+        <button
+          type="submit"
+          disabled={submitting}
+          class="pant-btn pant-btn-accent pant-btn-wide"
+        >
+          {submitting ? "› criando…" : "› criar conta"}
+        </button>
+      </form>
+    </Panel>
 
-  <p class="mt-6 text-center text-sm text-slate-600">
-    Já tem uma? <a href="/login" class="underline">Entrar</a>
-  </p>
+    <p class="auth-foot">
+      <span class="ink-dim">já tem uma?</span>
+      <a href="/login" class="auth-link">› entrar</a>
+    </p>
+  </div>
 </section>
+
+<style>
+  .auth-frame {
+    width: 100%;
+    max-width: 380px;
+  }
+  .auth-brand {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .brand-logo {
+    height: 64px;
+    margin: 0 auto 8px;
+    display: block;
+  }
+  .brand-name {
+    margin: 0;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+  }
+  .auth-foot {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 12px;
+  }
+  .auth-link {
+    color: var(--accent);
+    text-decoration: none;
+    margin-left: 6px;
+  }
+  .auth-link:hover { text-decoration: underline; }
+</style>

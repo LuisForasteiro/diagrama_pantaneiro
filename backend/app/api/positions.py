@@ -16,6 +16,10 @@ from app.models.portfolio import Portfolio
 from app.models.position import Position
 from app.models.user import User
 from app.schemas.position import PositionCreate, PositionOut, PositionUpdate
+from app.services.default_diagram_questions import (
+    ETF_DIAGRAM_TYPE,
+    ETF_QUESTIONS,
+)
 from app.services.import_auvp import import_auvp_user_doc
 from app.services.strength import DIAGRAM_FOR_CLASS
 
@@ -35,6 +39,7 @@ def _to_out(p: Position) -> PositionOut:
         id=p.id,
         name=p.name,
         asset_type=p.asset_type,
+        effective_class=p.effective_class,
         amount=p.amount,
         current_price=p.current_price,
         current_value_brl=current_value,
@@ -95,9 +100,49 @@ async def _compute_strength_if_diagram(
     return max(-n, min(n, 2 * yes - n))
 
 
+async def _ensure_etf_questions(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Backfill the default ETF diagram questions for a user (idempotent).
+
+    Mirrors migration 0006. The migration runs once per user at upgrade
+    time; this hook covers users created AFTER the migration ran.
+    """
+    existing_ext_ids = {
+        row[0]
+        for row in (
+            await session.execute(
+                select(DiagramQuestion.external_id).where(
+                    DiagramQuestion.user_id == user_id,
+                    DiagramQuestion.diagram_type == ETF_DIAGRAM_TYPE,
+                )
+            )
+        ).all()
+    }
+    added = False
+    for q in ETF_QUESTIONS:
+        if q["external_id"] in existing_ext_ids:
+            continue
+        session.add(
+            DiagramQuestion(
+                user_id=user_id,
+                diagram_type=ETF_DIAGRAM_TYPE,
+                criterias=q["criterias"],
+                question_text=q["question_text"],
+                display_order=q["display_order"],
+                external_id=q["external_id"],
+            )
+        )
+        added = True
+    if added:
+        await session.commit()
+
+
 async def _seed_if_empty(
     session: AsyncSession, user_id: uuid.UUID, portfolio_id: uuid.UUID
 ) -> None:
+    # Always ensure default ETF questions exist for this user — cheap, idempotent,
+    # covers users created after migration 0006 ran.
+    await _ensure_etf_questions(session, user_id)
+
     # Only auto-import the AUVP fixture for a brand-new user (no positions
     # anywhere yet). Creating a second portfolio must NOT re-seed — the user
     # expects it to start empty.
@@ -146,6 +191,7 @@ async def create_position(
         portfolio_id=portfolio.id,
         name=body.name,
         asset_type=body.asset_type,
+        effective_class=body.effective_class,
         amount=body.amount,
         current_price=body.current_price,
         strength=strength,

@@ -15,6 +15,8 @@ from pydantic import BaseModel, ConfigDict
 ClassType = Literal[
     "acoes_nacionais",
     "acoes_internacionais",
+    "etfs_nacionais",
+    "etfs_internacionais",
     "fundos_imobiliarios",
     "reits",
     "criptomoedas",
@@ -22,7 +24,11 @@ ClassType = Literal[
     "rendafixa_internacional",
 ]
 
-DiagramType = Literal["diagrama-do-cerrado", "investimentos-imobiliarios"]
+DiagramType = Literal[
+    "diagrama-do-cerrado",
+    "investimentos-imobiliarios",
+    "diagrama-etfs",
+]
 
 
 class Question(BaseModel):

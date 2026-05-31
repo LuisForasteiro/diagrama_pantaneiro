@@ -29,7 +29,7 @@ describe("apiRequest", () => {
   it("adds Authorization header when token is set", async () => {
     authStore.login("my-token", { id: "u1", email: "a@b.c", is_active: true, is_superuser: false, is_verified: false });
 
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (..._args: Parameters<typeof fetch>) =>
       new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }),
     );
     globalThis.fetch = fetchMock as typeof fetch;

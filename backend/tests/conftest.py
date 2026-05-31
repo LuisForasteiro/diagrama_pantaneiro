@@ -1,9 +1,7 @@
-import asyncio
 import os
 
 os.environ.setdefault("JWT_SECRET", "test-secret-for-pytest")
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine

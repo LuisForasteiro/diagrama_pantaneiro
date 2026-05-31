@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 from httpx import AsyncClient
 
 
@@ -18,8 +17,10 @@ async def _register_login(client: AsyncClient, email: str) -> str:
 
 def _valid_values() -> dict[str, int]:
     return {
-        "acoes_nacionais": 40,
+        "acoes_nacionais": 30,
         "acoes_internacionais": 10,
+        "etfs_nacionais": 5,
+        "etfs_internacionais": 5,
         "fundos_imobiliarios": 15,
         "reits": 5,
         "criptomoedas": 10,
@@ -45,7 +46,7 @@ async def test_post_preset_happy_path(client: AsyncClient) -> None:
     assert r.status_code == 201
     body = r.json()
     assert body["name"] == "Agressivo"
-    assert body["values"]["acoes_nacionais"] == 40
+    assert body["values"]["acoes_nacionais"] == 30
     assert "id" in body and "createdAt" in body
 
     r2 = await client.get("/api/target-presets", headers=headers)
@@ -118,7 +119,7 @@ async def test_delete_preset_removes_only_target_preset(
         json={"name": "A", "values": _valid_values()},
         headers=headers,
     )
-    b = await client.post(
+    await client.post(
         "/api/target-presets",
         json={"name": "B", "values": _valid_values()},
         headers=headers,

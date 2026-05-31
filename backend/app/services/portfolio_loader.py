@@ -23,13 +23,25 @@ from app.services.types import Asset, Portfolio, Question
 
 
 async def load_portfolio(
-    session: AsyncSession, user_id: uuid.UUID, portfolio_id: uuid.UUID
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    portfolio_id: uuid.UUID,
+    exclude_position_ids: set[uuid.UUID] | None = None,
 ) -> Portfolio:
+    """Load a portfolio snapshot for the algorithm.
+
+    `exclude_position_ids` (optional) is used by the aporte-recompute flow
+    to drop positions the user opted out of within a specific event (e.g.,
+    a Tesouro title that no longer exists). The positions themselves are
+    NOT touched in the DB — they're just filtered from the algorithm's view.
+    """
+    excluded = exclude_position_ids or set()
     pos_rows = (
         await session.execute(
             select(Position).where(Position.portfolio_id == portfolio_id)
         )
     ).scalars().all()
+    pos_rows = [p for p in pos_rows if p.id not in excluded]
     tgt_rows = (
         await session.execute(
             select(InvestmentTarget).where(
@@ -43,10 +55,14 @@ async def load_portfolio(
         )
     ).scalars().all()
 
+    # Semantic override: when effective_class is set, the algorithm and any
+    # downstream aggregator treat the position as that class. The original
+    # asset_type stays in the DB row (used only for price-routing in
+    # market_data/registry.py and for the UI to show the override badge).
     assets = [
         Asset(
             id=str(p.id),
-            type=p.asset_type,  # type: ignore[arg-type]
+            type=(p.effective_class or p.asset_type),  # type: ignore[arg-type]
             name=p.name,
             amount=p.amount,
             strength=p.strength,

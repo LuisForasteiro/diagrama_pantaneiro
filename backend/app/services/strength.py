@@ -13,6 +13,8 @@ DIAGRAM_FOR_CLASS: dict[ClassType, DiagramType] = {
     "acoes_internacionais": "diagrama-do-cerrado",
     "fundos_imobiliarios": "investimentos-imobiliarios",
     "reits": "investimentos-imobiliarios",
+    "etfs_nacionais": "diagrama-etfs",
+    "etfs_internacionais": "diagrama-etfs",
 }
 
 

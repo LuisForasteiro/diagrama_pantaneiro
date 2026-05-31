@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 from httpx import AsyncClient
 
 
@@ -137,5 +136,147 @@ async def test_apply_cannot_cross_user_boundary(client: AsyncClient) -> None:
         f"/api/aportes/{event['id']}/allocations/{alloc['id']}/apply",
         json={},
         headers=headers_b,
+    )
+    assert r.status_code == 404
+
+
+async def test_delete_aporte_event_when_unapplied(client: AsyncClient) -> None:
+    token = await _register_login_seed(client, "del-ev@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await client.post("/api/aportes", json={"value": 500}, headers=headers)
+    event_id = created.json()["id"]
+
+    r = await client.delete(f"/api/aportes/{event_id}", headers=headers)
+    assert r.status_code == 204
+
+    listing = await client.get("/api/aportes", headers=headers)
+    assert all(e["id"] != event_id for e in listing.json())
+
+
+async def test_delete_aporte_event_blocked_when_applied(client: AsyncClient) -> None:
+    token = await _register_login_seed(client, "del-applied@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await client.post("/api/aportes", json={"value": 500}, headers=headers)
+    event = created.json()
+    alloc = event["allocations"][0]
+
+    await client.post(
+        f"/api/aportes/{event['id']}/allocations/{alloc['id']}/apply",
+        json={},
+        headers=headers,
+    )
+
+    r = await client.delete(f"/api/aportes/{event['id']}", headers=headers)
+    assert r.status_code == 409
+
+
+async def test_delete_aporte_event_not_found(client: AsyncClient) -> None:
+    token = await _register_login_seed(client, "del-404@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    fake = "00000000-0000-0000-0000-000000000000"
+    r = await client.delete(f"/api/aportes/{fake}", headers=headers)
+    assert r.status_code == 404
+
+
+async def test_delete_aporte_event_cross_user(client: AsyncClient) -> None:
+    token_a = await _register_login_seed(client, "owner-ev@example.com")
+    created = await client.post(
+        "/api/aportes", json={"value": 500}, headers={"Authorization": f"Bearer {token_a}"}
+    )
+    event_id = created.json()["id"]
+
+    token_b = await _register_login_seed(client, "intruder-ev@example.com")
+    r = await client.delete(
+        f"/api/aportes/{event_id}",
+        headers={"Authorization": f"Bearer {token_b}"},
+    )
+    assert r.status_code == 404
+
+
+async def test_delete_allocation_recomputes_remaining(client: AsyncClient) -> None:
+    token = await _register_login_seed(client, "del-alloc@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await client.post("/api/aportes", json={"value": 500}, headers=headers)
+    event = created.json()
+    assert len(event["allocations"]) == 3
+    target_alloc = event["allocations"][0]
+    excluded_pos_id = target_alloc["positionId"]
+
+    r = await client.delete(
+        f"/api/aportes/{event['id']}/allocations/{target_alloc['id']}",
+        headers=headers,
+    )
+    assert r.status_code == 200
+    updated = r.json()
+    assert updated["aporteValueBrl"] == 500
+    # Excluded position must not appear among the new allocations.
+    assert all(a["positionId"] != excluded_pos_id for a in updated["allocations"])
+    # Sum of remaining suggestions stays close to the aporte total.
+    total = sum(a["suggestedValueBrl"] for a in updated["allocations"])
+    assert abs(total - 500) < 5.0  # quantization residual is small
+
+
+async def test_delete_allocation_sticky_across_consecutive_deletes(
+    client: AsyncClient,
+) -> None:
+    token = await _register_login_seed(client, "del-sticky@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await client.post("/api/aportes", json={"value": 500}, headers=headers)
+    event = created.json()
+    first_excluded = event["allocations"][0]["positionId"]
+
+    first = await client.delete(
+        f"/api/aportes/{event['id']}/allocations/{event['allocations'][0]['id']}",
+        headers=headers,
+    )
+    second_event = first.json()
+    # Pick another allocation to delete next.
+    target = second_event["allocations"][0]
+    second_excluded = target["positionId"]
+
+    r = await client.delete(
+        f"/api/aportes/{event['id']}/allocations/{target['id']}",
+        headers=headers,
+    )
+    assert r.status_code == 200
+    final = r.json()
+    pos_ids = {a["positionId"] for a in final["allocations"]}
+    # Both previously-deleted positions stay out.
+    assert first_excluded not in pos_ids
+    assert second_excluded not in pos_ids
+
+
+async def test_delete_allocation_blocked_when_any_applied(
+    client: AsyncClient,
+) -> None:
+    token = await _register_login_seed(client, "del-alloc-applied@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await client.post("/api/aportes", json={"value": 500}, headers=headers)
+    event = created.json()
+    a0 = event["allocations"][0]
+    a1 = event["allocations"][1]
+
+    # Apply one, then try to delete another.
+    await client.post(
+        f"/api/aportes/{event['id']}/allocations/{a0['id']}/apply",
+        json={},
+        headers=headers,
+    )
+    r = await client.delete(
+        f"/api/aportes/{event['id']}/allocations/{a1['id']}",
+        headers=headers,
+    )
+    assert r.status_code == 409
+
+
+async def test_delete_allocation_not_found(client: AsyncClient) -> None:
+    token = await _register_login_seed(client, "del-alloc-404@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await client.post("/api/aportes", json={"value": 500}, headers=headers)
+    event_id = created.json()["id"]
+    fake = "00000000-0000-0000-0000-000000000000"
+    r = await client.delete(
+        f"/api/aportes/{event_id}/allocations/{fake}",
+        headers=headers,
     )
     assert r.status_code == 404

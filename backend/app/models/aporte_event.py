@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from fastapi_users_db_sqlalchemy.generics import GUID
 from sqlalchemy import DateTime, Float, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+
+if TYPE_CHECKING:
+    from app.models.aporte_allocation import AporteAllocation
 
 
 def _utcnow() -> datetime:

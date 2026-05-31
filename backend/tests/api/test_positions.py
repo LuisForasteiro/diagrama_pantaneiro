@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 from httpx import AsyncClient
 
 
@@ -230,3 +229,166 @@ async def test_crypto_strength_not_recomputed(client: AsyncClient) -> None:
     )
     assert r.status_code == 201
     assert r.json()["strength"] == 7
+
+
+async def test_position_effective_class_defaults_null(client: AsyncClient) -> None:
+    token = await _register_and_login(client, "eff1@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    await client.get("/api/positions", headers=headers)  # seed
+    r = await client.post(
+        "/api/positions",
+        json={
+            "name": "OBTC3",
+            "assetType": "acoes_nacionais",
+            "amount": 10,
+            "currentPrice": 5,
+            "strength": 3,
+        },
+        headers=headers,
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["assetType"] == "acoes_nacionais"
+    assert body["effectiveClass"] is None
+
+
+async def test_patch_effective_class_sets_override(client: AsyncClient) -> None:
+    token = await _register_and_login(client, "eff2@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    await client.get("/api/positions", headers=headers)  # seed
+    created = await client.post(
+        "/api/positions",
+        json={
+            "name": "OBTC3",
+            "assetType": "acoes_nacionais",
+            "amount": 10,
+            "currentPrice": 5,
+            "strength": 3,
+        },
+        headers=headers,
+    )
+    pid = created.json()["id"]
+
+    r = await client.patch(
+        f"/api/positions/{pid}",
+        json={"effectiveClass": "criptomoedas"},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["assetType"] == "acoes_nacionais"  # untouched
+    assert body["effectiveClass"] == "criptomoedas"
+
+
+async def test_patch_effective_class_can_be_cleared_with_null(
+    client: AsyncClient,
+) -> None:
+    token = await _register_and_login(client, "eff3@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    await client.get("/api/positions", headers=headers)  # seed
+    created = await client.post(
+        "/api/positions",
+        json={
+            "name": "OBTC3",
+            "assetType": "acoes_nacionais",
+            "amount": 10,
+            "currentPrice": 5,
+            "strength": 3,
+            "effectiveClass": "criptomoedas",
+        },
+        headers=headers,
+    )
+    pid = created.json()["id"]
+    assert created.json()["effectiveClass"] == "criptomoedas"
+
+    r = await client.patch(
+        f"/api/positions/{pid}",
+        json={"effectiveClass": None},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["effectiveClass"] is None
+
+
+async def test_effective_class_rejects_unknown(client: AsyncClient) -> None:
+    token = await _register_and_login(client, "eff4@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    await client.get("/api/positions", headers=headers)  # seed
+    created = await client.post(
+        "/api/positions",
+        json={
+            "name": "OBTC3",
+            "assetType": "acoes_nacionais",
+            "amount": 10,
+            "currentPrice": 5,
+            "strength": 3,
+        },
+        headers=headers,
+    )
+    pid = created.json()["id"]
+    r = await client.patch(
+        f"/api/positions/{pid}",
+        json={"effectiveClass": "not_a_real_class"},
+        headers=headers,
+    )
+    assert r.status_code == 422
+
+
+async def test_effective_class_shifts_aporte_routing(client: AsyncClient) -> None:
+    """An OBTC3 reclassified as 'criptomoedas' is treated as crypto by the
+    rebalancing algorithm — meta de cripto recebe esse aporte."""
+    token = await _register_and_login(client, "eff5@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    await client.get("/api/positions", headers=headers)  # seed
+
+    # Clean slate after AUVP seed: delete the seeded positions so the test
+    # exercises only OBTC3.
+    seeded = (await client.get("/api/positions", headers=headers)).json()
+    for p in seeded:
+        await client.delete(f"/api/positions/{p['id']}", headers=headers)
+
+    # Stand-alone portfolio: one position (OBTC3, override to crypto).
+    obtc3 = (
+        await client.post(
+            "/api/positions",
+            json={
+                "name": "OBTC3",
+                "assetType": "acoes_nacionais",
+                "amount": 100,
+                "currentPrice": 5,
+                "strength": 5,
+                "effectiveClass": "criptomoedas",
+            },
+            headers=headers,
+        )
+    ).json()
+
+    # Targets: 100% crypto.
+    await client.put(
+        "/api/targets",
+        json={
+            "targets": [
+                {"assetType": "acoes_nacionais", "targetPercentage": 0},
+                {"assetType": "acoes_internacionais", "targetPercentage": 0},
+                {"assetType": "etfs_nacionais", "targetPercentage": 0},
+                {"assetType": "etfs_internacionais", "targetPercentage": 0},
+                {"assetType": "fundos_imobiliarios", "targetPercentage": 0},
+                {"assetType": "reits", "targetPercentage": 0},
+                {"assetType": "criptomoedas", "targetPercentage": 100},
+                {"assetType": "rendafixa", "targetPercentage": 0},
+                {"assetType": "rendafixa_internacional", "targetPercentage": 0},
+            ]
+        },
+        headers=headers,
+    )
+
+    aporte = (
+        await client.post(
+            "/api/aportes", json={"value": 500}, headers=headers
+        )
+    ).json()
+    assert len(aporte["allocations"]) == 1
+    alloc = aporte["allocations"][0]
+    assert alloc["positionId"] == obtc3["id"]
+    # Snapshot reflects the EFFECTIVE class at the time of aporte.
+    assert alloc["assetTypeSnapshot"] == "criptomoedas"

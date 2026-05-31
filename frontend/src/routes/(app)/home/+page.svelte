@@ -10,13 +10,25 @@
   import { portfolioStore } from "$lib/stores/portfolio";
   import { privacyStore } from "$lib/stores/privacy";
   import { formatBrl, formatBrlCompact, formatQty } from "$lib/format";
-  import { CLASS_LABELS } from "$lib/classLabels";
+  import {
+    CLASS_LABELS,
+    REGION_COLOR,
+    REGION_FOR_CLASS,
+    REGION_LABELS,
+    displayClass,
+    type Region,
+  } from "$lib/classLabels";
   import EditTargetsModal from "$lib/components/EditTargetsModal.svelte";
+  import Modal from "$lib/components/Modal.svelte";
+  import AporteFlow from "$lib/components/AporteFlow.svelte";
+  import PositionForm from "$lib/components/PositionForm.svelte";
   import type { PositionOut, TargetOut } from "$lib/types/api";
 
   const CLASS_ABBR: Record<string, string> = {
     acoes_nacionais: "ACN",
     acoes_internacionais: "ACI",
+    etfs_nacionais: "ETN",
+    etfs_internacionais: "ETI",
     fundos_imobiliarios: "FII",
     reits: "REI",
     criptomoedas: "CRY",
@@ -28,6 +40,8 @@
   const CLASS_COLOR: Record<string, string> = {
     acoes_nacionais: "#e8822c",           // pôr-do-sol / bico de tuiuiú
     acoes_internacionais: "#b85a1d",      // argila do barranco
+    etfs_nacionais: "#c97a3d",            // laranja queimado / pena de tuiuiú jovem
+    etfs_internacionais: "#dba35a",       // capim seco do estio
     fundos_imobiliarios: "#d9b86a",       // areia de baía seca
     reits: "#8a6a2e",                     // madeira de aroeira
     criptomoedas: "#4fa8b8",              // água do corixo ao sol
@@ -47,7 +61,17 @@
   let refreshFailed = $state(false);
 
   let showTargetsModal = $state(false);
+  let showAporteModal = $state(false);
+  let showAddPositionModal = $state(false);
   let hoveredClass = $state<string | null>(null);
+
+  async function reloadEverything() {
+    try {
+      [positions, targets] = await Promise.all([listPositions(), listTargets()]);
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
 
   // ── ordenação clicável da tabela de posições ──
   type SortKey = "nome" | "classe" | "quantidade" | "preco" | "valor" | "participacao" | "forca";
@@ -135,10 +159,44 @@
 
   let classCurrentPct = $derived.by(() => {
     const byType: Record<string, number> = {};
-    for (const p of positions) byType[p.assetType] = (byType[p.assetType] ?? 0) + p.currentValueBrl;
+    for (const p of positions) {
+      const cls = displayClass(p);
+      byType[cls] = (byType[cls] ?? 0) + p.currentValueBrl;
+    }
     const out: Record<string, number> = {};
     for (const [t, v] of Object.entries(byType)) out[t] = totalValue > 0 ? (v / totalValue) * 100 : 0;
     return out;
+  });
+
+  // Region exposure (visual only) — derived from displayClass per position
+  type RegionSegment = { region: Region; label: string; pct: number; value: number; color: string; offset: number };
+  let regionTotals = $derived.by<Record<Region, number>>(() => {
+    const out: Record<Region, number> = { nacional: 0, internacional: 0, cripto: 0 };
+    for (const p of positions) {
+      const region = REGION_FOR_CLASS[displayClass(p)];
+      if (region) out[region] += p.currentValueBrl;
+    }
+    return out;
+  });
+  let regionSegments = $derived.by<RegionSegment[]>(() => {
+    const entries: Region[] = ["nacional", "internacional", "cripto"];
+    const segs: RegionSegment[] = [];
+    let cursor = 0;
+    for (const region of entries) {
+      const value = regionTotals[region];
+      const pct = totalValue > 0 ? (value / totalValue) * 100 : 0;
+      if (pct <= 0.01) continue;
+      segs.push({
+        region,
+        label: REGION_LABELS[region],
+        pct,
+        value,
+        color: REGION_COLOR[region],
+        offset: cursor,
+      });
+      cursor += pct;
+    }
+    return segs;
   });
 
   // Donut segment builder — SVG arcs drawn on a 100×100 viewBox, stroke-based
@@ -254,10 +312,10 @@
       <button type="button" onclick={handleRefresh} disabled={refreshing} class="btn">
         {refreshing ? "› sincronizando…" : "› atualizar"}
       </button>
-      <a class="btn" href="/home/new">› adicionar</a>
+      <button class="btn" type="button" onclick={() => (showAddPositionModal = true)}>› adicionar</button>
       <a class="btn" href="/diagram">› diagrama</a>
       <a class="btn" href="/history">› histórico</a>
-      <a class="btn btn-accent" href="/aporte">› aporte ▸</a>
+      <button class="btn btn-accent" type="button" onclick={() => (showAporteModal = true)}>› aporte ▸</button>
       <button class="btn" onclick={handleLogout}>› sair</button>
     </nav>
   </div>
@@ -410,6 +468,56 @@
       </div>
     </section>
 
+    <!-- REGION EXPOSURE (visual only) -->
+    {#if regionSegments.length > 0}
+      <section class="panel reveal" style="--delay: 200ms">
+        <div class="bracket bracket-tl"></div>
+        <div class="bracket bracket-tr"></div>
+        <div class="bracket bracket-bl"></div>
+        <div class="bracket bracket-br"></div>
+
+        <header class="panel-head">
+          <h2 class="panel-title">── exposição_por_região ──</h2>
+          <span class="panel-sub ink-dim">apenas visual · classe efetiva</span>
+        </header>
+
+        <div class="region-wrap">
+          <svg viewBox="0 0 100 100" class="region-donut" aria-label="Exposição por região">
+            <circle cx="50" cy="50" r={RADIUS} fill="none" stroke="var(--hairline)" stroke-width="1" />
+            {#each regionSegments as s, i (s.region)}
+              {@const len = (s.pct / 100) * CIRCUMFERENCE}
+              {@const dashOffset = -((s.offset / 100) * CIRCUMFERENCE)}
+              <circle
+                cx="50"
+                cy="50"
+                r={RADIUS}
+                fill="none"
+                stroke={s.color}
+                stroke-width="12"
+                stroke-dasharray="{len} {CIRCUMFERENCE - len}"
+                stroke-dashoffset={dashOffset}
+                transform="rotate(-90 50 50)"
+                class="donut-seg"
+                style="--draw-delay: {i * 70}ms; --draw-len: {len}; --draw-total: {CIRCUMFERENCE};"
+              />
+            {/each}
+            <circle cx="50" cy="50" r={RADIUS - 7} fill="none" stroke="var(--hairline)" stroke-width="0.5" />
+          </svg>
+
+          <ul class="region-list">
+            {#each regionSegments as s (s.region)}
+              <li class="region-row">
+                <span class="swatch" style="background: {s.color}"></span>
+                <span class="region-name">{s.label}</span>
+                <span class="region-pct tab-nums">{s.pct.toFixed(1)}%</span>
+                <span class="region-val tab-nums ink-dim">{fmtBRLCompact(s.value)}</span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      </section>
+    {/if}
+
     <!-- POSITIONS -->
     <section class="panel reveal" style="--delay: 240ms">
       <div class="bracket bracket-tl"></div>
@@ -451,7 +559,7 @@
         <tbody>
           {#each [...positions].sort((a, b) => {
             const dir = sortDesc ? -1 : 1;
-            const classLabel = (p: PositionOut) => CLASS_LABELS[p.assetType] ?? p.assetType;
+            const classLabel = (p: PositionOut) => CLASS_LABELS[displayClass(p)] ?? displayClass(p);
             const share = (p: PositionOut) => totalValue > 0 ? p.currentValueBrl / totalValue : 0;
             switch (sortKey) {
               case "nome": return a.name.localeCompare(b.name, "pt-BR") * dir;
@@ -466,15 +574,19 @@
           }) as p, i (p.id)}
             {@const share = totalValue > 0 ? (p.currentValueBrl / totalValue) * 100 : 0}
             {@const cells = strengthCells(p.strength)}
+            {@const cls = displayClass(p)}
             <tr style="--row-delay: {i * 20}ms">
               <td class="col-name">
                 <a href="/home/{p.id}">{p.name}</a>
               </td>
               <td class="col-class">
-                <span style="color: {CLASS_COLOR[p.assetType] ?? 'var(--ink-dim)'}">
-                  [{CLASS_ABBR[p.assetType] ?? "??"}]
+                <span style="color: {CLASS_COLOR[cls] ?? 'var(--ink-dim)'}">
+                  [{CLASS_ABBR[cls] ?? "??"}]
                 </span>
-                <span class="ink-dim">{CLASS_LABELS[p.assetType] ?? p.assetType}</span>
+                <span class="ink-dim">{CLASS_LABELS[cls] ?? cls}</span>
+                {#if p.effectiveClass}
+                  <span class="override-tag" title="Classe original: {CLASS_LABELS[p.assetType] ?? p.assetType}">[override]</span>
+                {/if}
               </td>
               <td class="col-num tab-nums">
                 {fmtQty(p.amount)}
@@ -522,6 +634,33 @@
       }}
       onclose={() => (showTargetsModal = false)}
     />
+  {/if}
+
+  {#if showAporteModal}
+    <Modal
+      title="── novo_aporte ──"
+      sub="calcula sugestões de alocação · ESC fecha"
+      variant="fullscreen"
+      onClose={() => (showAporteModal = false)}
+    >
+      <AporteFlow onChanged={reloadEverything} />
+    </Modal>
+  {/if}
+
+  {#if showAddPositionModal}
+    <Modal
+      title="── nova_posição ──"
+      onClose={() => (showAddPositionModal = false)}
+      maxWidth="560px"
+    >
+      <PositionForm
+        onCreated={async () => {
+          showAddPositionModal = false;
+          await reloadEverything();
+        }}
+        onCancel={() => (showAddPositionModal = false)}
+      />
+    </Modal>
   {/if}
 </section>
 
@@ -897,6 +1036,41 @@
   .hc-filled.hc-pos { background: var(--positive); box-shadow: 0 0 4px color-mix(in srgb, var(--positive) 60%, transparent); }
   .hc-filled.hc-neg { background: var(--negative); box-shadow: 0 0 4px color-mix(in srgb, var(--negative) 60%, transparent); }
   .heat-num { margin-left: 8px; min-width: 28px; text-align: right; font-weight: 700; }
+
+  /* ── override tag (effective_class) ──────── */
+  .override-tag {
+    margin-left: 6px;
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.05em;
+    cursor: help;
+  }
+
+  /* ── region donut ───────────────────────── */
+  .region-wrap {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 32px;
+    align-items: center;
+  }
+  .region-donut { width: 100%; max-width: 200px; aspect-ratio: 1; }
+  .region-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+  .region-row {
+    display: grid;
+    grid-template-columns: 14px 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    padding: 4px 6px;
+  }
+  .region-name { color: var(--ink); }
+  .region-pct { color: var(--ink); font-weight: 700; }
+  .region-val { font-size: 11px; }
+
+  @media (max-width: 720px) {
+    .region-wrap { grid-template-columns: 1fr; }
+    .region-donut { max-width: 160px; justify-self: center; }
+  }
 
   /* ── reveal animation ───────────────────── */
   .reveal { animation: fade-up 600ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards; animation-delay: var(--delay, 0ms); }

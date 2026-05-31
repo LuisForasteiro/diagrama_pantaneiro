@@ -43,9 +43,9 @@ def adapter_for_asset_type(
     asset_type: str, name: str
 ) -> tuple[PriceProvider, str] | None:
     """Returns (adapter, external_id) for a given position, or None if manual."""
-    if asset_type in ("acoes_nacionais", "fundos_imobiliarios"):
+    if asset_type in ("acoes_nacionais", "fundos_imobiliarios", "etfs_nacionais"):
         return _br_stock_route(name)
-    if asset_type in ("acoes_internacionais", "reits"):
+    if asset_type in ("acoes_internacionais", "reits", "etfs_internacionais"):
         return _ADAPTERS["yfinance"], name
     if asset_type == "criptomoedas":
         return _ADAPTERS["coingecko"], name

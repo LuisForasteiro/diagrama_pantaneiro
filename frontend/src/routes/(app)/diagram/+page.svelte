@@ -6,6 +6,8 @@
     updateDiagramQuestion,
     deleteDiagramQuestion,
   } from "$lib/api/diagram";
+  import Panel from "$lib/components/Panel.svelte";
+  import Topbar from "$lib/components/Topbar.svelte";
   import type { DiagramQuestionOut } from "$lib/types/api";
 
   let questions = $state<DiagramQuestionOut[]>([]);
@@ -13,12 +15,10 @@
   let error = $state<string | null>(null);
   let busyId = $state<string | null>(null);
 
-  // Editing state: which question is being edited + its draft values
   let editingId = $state<string | null>(null);
   let editCriterias = $state("");
   let editText = $state("");
 
-  // Add-form state per diagram
   let addingFor = $state<string | null>(null);
   let newCriterias = $state("");
   let newText = $state("");
@@ -42,6 +42,9 @@
   );
   let imobiliarios = $derived(
     questions.filter((q) => q.diagramType === "investimentos-imobiliarios"),
+  );
+  let etfs = $derived(
+    questions.filter((q) => q.diagramType === "diagrama-etfs"),
   );
 
   function startEdit(q: DiagramQuestionOut) {
@@ -75,8 +78,9 @@
     if (
       !confirm(
         `Deletar "${q.criterias || q.questionText}"?\n\n` +
-          `Isso rebalanceia a força de todas as ações: N diminui em 1 e qualquer ` +
-          `resposta "sim" para esta pergunta é removida. Esta ação não pode ser desfeita.`,
+          `Isso rebalanceia a força de todas as ações: N diminui em 1 e ` +
+          `qualquer resposta "sim" para esta pergunta é removida. Esta ação ` +
+          `não pode ser desfeita.`,
       )
     )
       return;
@@ -123,112 +127,118 @@
       busyId = null;
     }
   }
+
+  const BANKS = [
+    {
+      type: "diagrama-do-cerrado",
+      label: "── diagrama_pantaneiro ──",
+      subtitle: "Ações nacionais + internacionais",
+    },
+    {
+      type: "investimentos-imobiliarios",
+      label: "── investimentos_imobiliários ──",
+      subtitle: "FIIs + REITs",
+    },
+    {
+      type: "diagrama-etfs",
+      label: "── diagrama_etfs ──",
+      subtitle: "ETFs nacionais + internacionais",
+    },
+  ];
 </script>
 
-<section class="mx-auto mt-8 max-w-5xl p-6">
-  <header class="mb-6 flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-bold">Diagrama — critérios de pontuação</h1>
-      <p class="text-sm text-slate-600">
-        Força =
-        <code class="rounded bg-slate-100 px-1">2 × sim − N</code>.
-        Adicionar ou deletar uma pergunta recalcula a força de todas as ações.
-      </p>
-    </div>
-    <a href="/home" class="text-sm text-slate-600 underline">← voltar</a>
-  </header>
+<section class="pant-wrap">
+  <Topbar subtitle="diagrama">
+    {#snippet nav()}
+      <a class="pant-btn" href="/home">› voltar</a>
+    {/snippet}
+  </Topbar>
+
+  <Panel delay={0}>
+    <p class="intro">
+      <span class="pant-prompt">»</span> força =
+      <code class="formula">2 × sim − N</code>.
+      adicionar ou deletar uma pergunta recalcula a força de todas as ações
+      naquele diagrama.
+    </p>
+  </Panel>
 
   {#if error}
-    <p class="mb-4 rounded bg-red-50 p-3 text-sm text-red-700">Erro: {error}</p>
+    <p class="pant-toast pant-toast-err"><span class="pant-prompt">!</span> {error}</p>
   {/if}
 
   {#if loading}
-    <p class="text-slate-500">Carregando…</p>
+    <p class="pant-loading"><span class="pant-blink">█</span> carregando perguntas</p>
   {:else}
-    <div class="grid gap-6 md:grid-cols-2">
-      {#each [{ type: "diagrama-do-cerrado", label: "Diagrama Pantaneiro", subtitle: "Ações nacionais + internacionais", list: cerrado }, { type: "investimentos-imobiliarios", label: "Investimentos Imobiliários", subtitle: "FIIs + REITs", list: imobiliarios }] as bank (bank.type)}
-        <div class="rounded border border-slate-200 bg-white p-4">
-          <div class="mb-3 flex items-start justify-between">
-            <div>
-              <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                {bank.label}
-              </h2>
-              <p class="text-xs text-slate-500">
-                {bank.subtitle} · {bank.list.length} perguntas
-              </p>
-            </div>
+    <div class="banks">
+      {#each BANKS as bank, i (bank.type)}
+        {@const list = bank.type === "diagrama-do-cerrado"
+          ? cerrado
+          : bank.type === "investimentos-imobiliarios"
+            ? imobiliarios
+            : etfs}
+        <Panel title={bank.label} sub="{bank.subtitle} · {list.length} perguntas" delay={120 + i * 80}>
+          {#snippet actions()}
             {#if addingFor !== bank.type}
-              <button
-                onclick={() => startAdd(bank.type)}
-                class="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700"
-              >
-                + Adicionar
+              <button type="button" class="pant-btn pant-btn-accent" onclick={() => startAdd(bank.type)}>
+                + adicionar
               </button>
             {/if}
-          </div>
+          {/snippet}
 
-          <ol class="list-decimal space-y-2 pl-5 text-sm">
-            {#each bank.list as q (q.id)}
-              <li>
+          <ol class="qlist">
+            {#each list as q (q.id)}
+              <li class="qrow">
                 {#if editingId === q.id}
-                  <div class="space-y-2">
+                  <div class="edit-form">
                     <input
                       type="text"
                       bind:value={editCriterias}
-                      placeholder="Rótulo curto (ex: ROE)"
-                      class="block w-full rounded border-slate-300 px-2 py-1 text-sm"
+                      placeholder="rótulo curto (ex: ROE)"
+                      class="pant-input"
                     />
                     <textarea
                       bind:value={editText}
                       rows="2"
-                      placeholder="Pergunta completa"
-                      class="block w-full rounded border-slate-300 px-2 py-1 text-sm"
+                      placeholder="pergunta completa"
+                      class="pant-input"
                     ></textarea>
-                    <div class="flex gap-2">
+                    <div class="pant-form-actions">
                       <button
                         type="button"
                         disabled={busyId === q.id}
                         onclick={() => saveEdit(q.id)}
-                        class="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+                        class="pant-btn pant-btn-accent"
                       >
-                        Salvar
+                        {busyId === q.id ? "…" : "salvar"}
                       </button>
-                      <button
-                        type="button"
-                        onclick={cancelEdit}
-                        class="rounded bg-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-300"
-                      >
-                        Cancelar
+                      <button type="button" onclick={cancelEdit} class="pant-btn">
+                        cancelar
                       </button>
                     </div>
                   </div>
                 {:else}
-                  <div class="flex items-start justify-between gap-2">
-                    <span class="flex-1">
-                      {#if q.criterias}<strong>{q.criterias}</strong>{/if}
+                  <div class="qrow-view">
+                    <span class="qrow-text">
+                      <span class="pant-prompt">›</span>
+                      {#if q.criterias}<strong class="qcrit">{q.criterias}</strong>{/if}
                       {#if q.questionText && q.questionText !== q.criterias}
-                        <span class="text-slate-600">
+                        <span class="ink-dim">
                           {q.criterias ? " — " : ""}{q.questionText}
                         </span>
                       {/if}
                     </span>
-                    <span class="flex shrink-0 gap-1">
-                      <button
-                        type="button"
-                        onclick={() => startEdit(q)}
-                        class="text-xs text-slate-600 underline hover:text-slate-900"
-                        title="Editar"
-                      >
+                    <span class="qrow-actions">
+                      <button type="button" onclick={() => startEdit(q)} class="pant-btn">
                         editar
                       </button>
                       <button
                         type="button"
                         disabled={busyId === q.id}
                         onclick={() => remove(q)}
-                        class="text-xs text-red-600 underline hover:text-red-800 disabled:opacity-50"
-                        title="Deletar"
+                        class="pant-btn pant-btn-danger"
                       >
-                        deletar
+                        × deletar
                       </button>
                     </span>
                   </div>
@@ -238,48 +248,106 @@
           </ol>
 
           {#if addingFor === bank.type}
-            <div class="mt-3 space-y-2 rounded bg-slate-50 p-3">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Adicionar pergunta
-              </p>
+            <div class="add-form">
+              <span class="pant-label-text">── nova pergunta ──</span>
               <input
                 type="text"
                 bind:value={newCriterias}
-                placeholder="Rótulo curto (opcional, ex: P/L)"
-                class="block w-full rounded border-slate-300 px-2 py-1 text-sm"
+                placeholder="rótulo curto (opcional, ex: P/L)"
+                class="pant-input"
               />
               <textarea
                 bind:value={newText}
                 rows="2"
-                placeholder="Full question"
-                class="block w-full rounded border-slate-300 px-2 py-1 text-sm"
+                placeholder="pergunta completa"
+                class="pant-input"
               ></textarea>
-              <div class="flex gap-2">
+              <div class="pant-form-actions">
                 <button
                   type="button"
                   disabled={busyId === "new"}
                   onclick={() => submitAdd(bank.type)}
-                  class="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+                  class="pant-btn pant-btn-accent"
                 >
-                  {busyId === "new" ? "Adicionando…" : "Adicionar"}
+                  {busyId === "new" ? "…" : "adicionar"}
                 </button>
-                <button
-                  type="button"
-                  onclick={cancelAdd}
-                  class="rounded bg-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-300"
-                >
-                  Cancelar
+                <button type="button" onclick={cancelAdd} class="pant-btn">
+                  cancelar
                 </button>
               </div>
             </div>
           {/if}
-        </div>
+        </Panel>
       {/each}
     </div>
 
-    <p class="mt-6 text-sm text-slate-500">
-      Atenção: adicionar ou deletar perguntas desloca a força de todas as ações —
-      confira o painel/posições após edições em massa.
+    <p class="footer">
+      <span class="pant-prompt">»</span>
+      <span class="ink-dim">
+        atenção: adicionar ou deletar perguntas desloca a força de todas as
+        ações do diagrama — confira o painel/posições após edições em massa.
+      </span>
     </p>
   {/if}
 </section>
+
+<style>
+  .intro {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .formula {
+    background: var(--surface-raised);
+    border: 1px solid var(--hairline);
+    padding: 1px 6px;
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 12px;
+  }
+
+  .banks {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  @media (min-width: 1100px) {
+    .banks { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  }
+
+  .qlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .qrow {
+    border: 1px solid var(--hairline);
+    padding: 8px 10px;
+    background: var(--surface-raised);
+    font-size: 12px;
+  }
+  .qrow-view {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .qrow-text { flex: 1; line-height: 1.5; }
+  .qcrit { color: var(--ink); }
+  .qrow-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .edit-form { display: grid; gap: 6px; }
+  .add-form {
+    margin-top: 14px;
+    padding: 12px;
+    background: var(--surface-raised);
+    border: 1px solid var(--hairline-strong);
+    display: grid;
+    gap: 6px;
+  }
+
+  .footer {
+    margin-top: 16px;
+    font-size: 12px;
+  }
+</style>

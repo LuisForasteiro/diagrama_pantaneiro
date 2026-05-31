@@ -8,15 +8,33 @@
     deletePosition,
   } from "$lib/api/positions";
   import DiagramChecklist from "$lib/components/DiagramChecklist.svelte";
+  import Panel from "$lib/components/Panel.svelte";
+  import Topbar from "$lib/components/Topbar.svelte";
+  import { CLASS_LABELS } from "$lib/classLabels";
   import type { PositionOut } from "$lib/types/api";
 
   let positionId = $derived(page.params.id);
+
+  // Sentinel used by the "Classe efetiva" select to represent "no override".
+  const EFFECTIVE_NONE = "__none__";
+  const CLASSES = [
+    { v: "acoes_nacionais", l: "Ações Nacionais" },
+    { v: "acoes_internacionais", l: "Ações Internacionais" },
+    { v: "etfs_nacionais", l: "ETFs Nacionais" },
+    { v: "etfs_internacionais", l: "ETFs Internacionais" },
+    { v: "fundos_imobiliarios", l: "Fundos Imobiliários" },
+    { v: "reits", l: "REITs" },
+    { v: "criptomoedas", l: "Criptomoedas" },
+    { v: "rendafixa", l: "Renda Fixa" },
+    { v: "rendafixa_internacional", l: "Renda Fixa Internacional" },
+  ];
 
   let position = $state<PositionOut | null>(null);
   let amountInput = $state("");
   let currentPriceInput = $state("");
   let strengthInput = $state("");
   let diagramResponses = $state<string[]>([]);
+  let effectiveClassInput = $state<string>(EFFECTIVE_NONE);
   let submitting = $state(false);
   let deleting = $state(false);
   let error = $state<string | null>(null);
@@ -34,6 +52,7 @@
       currentPriceInput = p.currentPrice != null ? String(p.currentPrice) : "";
       strengthInput = String(p.strength);
       diagramResponses = p.diagramResponses ?? [];
+      effectiveClassInput = p.effectiveClass ?? EFFECTIVE_NONE;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
@@ -47,7 +66,9 @@
     position?.assetType === "acoes_nacionais" ||
       position?.assetType === "acoes_internacionais" ||
       position?.assetType === "fundos_imobiliarios" ||
-      position?.assetType === "reits",
+      position?.assetType === "reits" ||
+      position?.assetType === "etfs_nacionais" ||
+      position?.assetType === "etfs_internacionais",
   );
   let rfHasPrice = $derived(
     isRF && currentPriceInput !== "" && Number(currentPriceInput) > 0,
@@ -59,8 +80,6 @@
     submitting = true;
     error = null;
     try {
-      // RF: price optional (blank means private RF tracked in BRL).
-      // Non-RF: price required.
       let currentPrice: number | null;
       if (isRF) {
         currentPrice =
@@ -75,13 +94,15 @@
         currentPrice: number | null;
         strength?: number;
         diagramResponses?: string[] | null;
+        effectiveClass?: string | null;
       } = {
         amount: Number(amountInput),
         currentPrice,
+        effectiveClass:
+          effectiveClassInput === EFFECTIVE_NONE ? null : effectiveClassInput,
       };
       if (hasDiagram) {
         body.diagramResponses = diagramResponses;
-        // strength omitted on purpose — backend recomputes
       } else {
         body.strength = parseInt(strengthInput, 10);
       }
@@ -109,105 +130,144 @@
   }
 </script>
 
-<section class="mx-auto mt-8 max-w-2xl p-6">
-  <header class="mb-6 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">
-      {position ? `Editar ${position.name}` : "Carregando…"}
-    </h1>
-    <a href="/home" class="text-sm text-slate-600 underline">← voltar</a>
-  </header>
+<section class="pant-wrap pant-wrap--narrow">
+  <Topbar subtitle={position ? `editar // ${position.name}` : "carregando…"}>
+    {#snippet nav()}
+      <a class="pant-btn" href="/home">› voltar</a>
+    {/snippet}
+  </Topbar>
 
   {#if error}
-    <p class="mb-4 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
+    <p class="pant-toast pant-toast-err"><span class="pant-prompt">!</span> {error}</p>
   {/if}
 
   {#if position}
-    <form onsubmit={handleSave} class="space-y-4">
-      <div class="rounded bg-slate-50 p-3 text-sm text-slate-600">
-        <p>
-          <strong>{position.name}</strong> · {position.assetType} · origem: {position.source}
-        </p>
+    <Panel delay={0}>
+      <div class="info">
+        <span class="pant-prompt">›</span>
+        <strong class="info-name">{position.name}</strong>
+        <span class="pant-sep">//</span>
+        <span class="ink-dim">{CLASS_LABELS[position.assetType] ?? position.assetType}</span>
+        <span class="pant-sep">//</span>
+        <span class="ink-muted">origem: {position.source}</span>
       </div>
+    </Panel>
 
-      <label class="block">
-        <span class="text-sm text-slate-700">
-          {#if isRF}
-            {rfHasPrice ? "Quantidade (unidades)" : "Valor (R$)"}
-          {:else}
-            Quantidade
-          {/if}
-        </span>
-        <input
-          type="number"
-          step="any"
-          required
-          bind:value={amountInput}
-          class="mt-1 block w-full rounded border-slate-300 px-3 py-2"
-        />
-      </label>
+    <Panel title="── editar ──" delay={120}>
+      <form onsubmit={handleSave} class="pant-form">
+        <label class="pant-label">
+          <span class="pant-label-text">Classe efetiva (override semântico)</span>
+          <span class="pant-label-hint">
+            Algoritmo, donut e metas usam a classe efetiva quando setada. A
+            busca de preço continua usando a classe original
+            (<code>{position.assetType}</code>) — útil para OBTC3, IVVB11 e
+            similares.
+          </span>
+          <select
+            bind:value={effectiveClassInput}
+            class="pant-input"
+          >
+            <option value={EFFECTIVE_NONE}>— usar classe original —</option>
+            {#each CLASSES as c (c.v)}
+              <option value={c.v}>{c.l}</option>
+            {/each}
+          </select>
+        </label>
 
-      <label class="block">
-        <span class="text-sm text-slate-700">
-          Preço atual
-          {#if isRF}
-            <span class="text-xs text-slate-500">— deixe em branco para RF privada</span>
-          {/if}
-        </span>
-        <input
-          type="number"
-          step="any"
-          required={!isRF}
-          bind:value={currentPriceInput}
-          class="mt-1 block w-full rounded border-slate-300 px-3 py-2"
-        />
-      </label>
-
-      {#if hasDiagram}
-        <DiagramChecklist
-          assetType={position.assetType}
-          responses={diagramResponses}
-          onchange={(ids) => (diagramResponses = ids)}
-        />
-      {:else}
-        <label class="block">
-          <span class="text-sm text-slate-700">
-            Força (manual — sem diagrama para esta classe)
+        <label class="pant-label">
+          <span class="pant-label-text">
+            {#if isRF}
+              {rfHasPrice ? "Quantidade (unidades)" : "Valor (R$)"}
+            {:else}
+              Quantidade
+            {/if}
           </span>
           <input
             type="number"
-            step="1"
+            step="any"
             required
-            bind:value={strengthInput}
-            class="mt-1 block w-full rounded border-slate-300 px-3 py-2"
+            bind:value={amountInput}
+            class="pant-input"
           />
         </label>
-      {/if}
 
-      <div class="flex justify-between">
-        <div class="flex gap-2">
+        <label class="pant-label">
+          <span class="pant-label-text">Preço atual</span>
+          {#if isRF}
+            <span class="pant-label-hint">deixe em branco para RF privada</span>
+          {/if}
+          <input
+            type="number"
+            step="any"
+            required={!isRF}
+            bind:value={currentPriceInput}
+            class="pant-input"
+          />
+        </label>
+
+        {#if hasDiagram}
+          <div class="diagram-wrap">
+            <DiagramChecklist
+              assetType={position.assetType}
+              responses={diagramResponses}
+              onchange={(ids) => (diagramResponses = ids)}
+            />
+          </div>
+        {:else}
+          <label class="pant-label">
+            <span class="pant-label-text">Força (manual — sem diagrama)</span>
+            <input
+              type="number"
+              step="1"
+              required
+              bind:value={strengthInput}
+              class="pant-input"
+            />
+          </label>
+        {/if}
+
+        <div class="actions-row">
+          <div class="pant-form-actions">
+            <button
+              type="submit"
+              disabled={submitting || deleting}
+              class="pant-btn pant-btn-accent"
+            >
+              {submitting ? "› salvando…" : "› salvar"}
+            </button>
+            <a href="/home" class="pant-btn">cancelar</a>
+          </div>
           <button
-            type="submit"
+            type="button"
+            onclick={handleDelete}
             disabled={submitting || deleting}
-            class="rounded bg-slate-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+            class="pant-btn pant-btn-danger"
           >
-            {submitting ? "Salvando…" : "Salvar"}
+            {deleting ? "deletando…" : "× deletar"}
           </button>
-          <a
-            href="/home"
-            class="rounded bg-slate-200 px-4 py-2 font-medium text-slate-800 hover:bg-slate-300"
-          >
-            Cancelar
-          </a>
         </div>
-        <button
-          type="button"
-          onclick={handleDelete}
-          disabled={submitting || deleting}
-          class="rounded bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700 disabled:opacity-50"
-        >
-          {deleting ? "Deletando…" : "Deletar"}
-        </button>
-      </div>
-    </form>
+      </form>
+    </Panel>
   {/if}
 </section>
+
+<style>
+  .info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+  }
+  .info-name { color: var(--ink); font-weight: 700; }
+  .diagram-wrap { margin-bottom: 14px; }
+  .actions-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+</style>

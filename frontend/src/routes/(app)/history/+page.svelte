@@ -1,13 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { listAportes } from "$lib/api/aportes";
+  import { deleteAporte, listAportes } from "$lib/api/aportes";
   import { privacyStore } from "$lib/stores/privacy";
   import { formatBrl } from "$lib/format";
   import type { AporteEventOut } from "$lib/types/api";
+  import Panel from "$lib/components/Panel.svelte";
+  import Topbar from "$lib/components/Topbar.svelte";
 
   let events = $state<AporteEventOut[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let deletingId = $state<string | null>(null);
 
   onMount(async () => {
     try {
@@ -38,69 +41,119 @@
       .filter((a) => a.applied)
       .reduce((s, a) => s + (a.appliedValueBrl ?? 0), 0);
   }
+
+  function canDelete(e: AporteEventOut): boolean {
+    return e.allocations.every((a) => !a.applied);
+  }
+
+  async function handleDelete(e: AporteEventOut) {
+    if (!canDelete(e)) return;
+    if (!confirm(`Excluir o aporte de ${fmtBRL(e.aporteValueBrl)} do histórico?`)) {
+      return;
+    }
+    deletingId = e.id;
+    try {
+      await deleteAporte(e.id);
+      events = events.filter((x) => x.id !== e.id);
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    } finally {
+      deletingId = null;
+    }
+  }
 </script>
 
-<section class="mx-auto mt-8 max-w-5xl p-6">
-  <header class="mb-6 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">Histórico de aportes</h1>
-    <a href="/home" class="text-sm text-slate-600 underline">← voltar</a>
-  </header>
+<section class="pant-wrap">
+  <Topbar subtitle="histórico_de_aportes">
+    {#snippet nav()}
+      <a class="pant-btn" href="/home">› voltar</a>
+      <a class="pant-btn pant-btn-accent" href="/aporte">› novo aporte ▸</a>
+    {/snippet}
+  </Topbar>
+
+  {#if error}
+    <p class="pant-toast pant-toast-err"><span class="pant-prompt">!</span> {error}</p>
+  {/if}
 
   {#if loading}
-    <p class="text-slate-500">Carregando…</p>
-  {:else if error}
-    <p class="rounded bg-red-50 p-4 text-red-700">Erro: {error}</p>
+    <p class="pant-loading"><span class="pant-blink">█</span> carregando histórico</p>
   {:else if events.length === 0}
-    <div class="rounded border border-slate-200 bg-white p-8 text-center">
-      <p class="text-slate-600">Nenhum aporte ainda.</p>
-      <a href="/aporte" class="mt-3 inline-block text-sm underline">
-        Criar seu primeiro aporte →
-      </a>
-    </div>
+    <Panel delay={0}>
+      <div class="empty">
+        <p class="empty-line"><span class="pant-prompt">»</span> nenhum aporte registrado.</p>
+        <a href="/aporte" class="pant-btn pant-btn-accent">› criar primeiro aporte</a>
+      </div>
+    </Panel>
   {:else}
-    <div class="rounded border border-slate-200 bg-white">
-      <table class="w-full text-sm">
-        <thead class="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
+    <Panel title="── aportes [{events.length}] ──" sub="ordenados do mais recente" delay={0}>
+      <table class="pant-grid hist-grid">
+        <thead>
           <tr>
-            <th class="px-4 py-2">Quando</th>
-            <th class="px-4 py-2 text-right">Valor</th>
-            <th class="px-4 py-2 text-right">Sugestões</th>
-            <th class="px-4 py-2 text-right">Aplicado</th>
-            <th class="px-4 py-2"></th>
+            <th class="col-when">Quando</th>
+            <th class="pant-col-num">Valor</th>
+            <th class="pant-col-num">Sugest.</th>
+            <th class="pant-col-num">Aplicado</th>
+            <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
           {#each events as e (e.id)}
             {@const applied = appliedCount(e)}
             {@const total = e.allocations.length}
-            <tr class="border-b border-slate-100 last:border-0">
-              <td class="px-4 py-2">{fmtDate(e.createdAt)}</td>
-              <td class="px-4 py-2 text-right tabular-nums font-semibold">
+            <tr>
+              <td class="col-when">{fmtDate(e.createdAt)}</td>
+              <td class="pant-col-num pant-tab-nums pant-val">
                 {fmtBRL(e.aporteValueBrl)}
               </td>
-              <td class="px-4 py-2 text-right tabular-nums text-slate-600">
-                {total}
-              </td>
+              <td class="pant-col-num pant-tab-nums ink-dim">{total}</td>
               <td
-                class="px-4 py-2 text-right tabular-nums"
-                class:text-emerald-700={applied > 0}
-                class:text-slate-400={applied === 0}
+                class="pant-col-num pant-tab-nums"
+                class:ink-pos={applied > 0}
+                class:ink-muted={applied === 0}
               >
                 {applied}/{total}{#if applied > 0}
                   · {fmtBRL(totalApplied(e))}{/if}
               </td>
-              <td class="px-4 py-2 text-right">
-                <a
-                  href="/history/{e.id}"
-                  class="text-sm text-slate-600 underline hover:text-slate-900"
-                >
-                  detalhes →
-                </a>
+              <td class="col-actions">
+                <div class="actions">
+                  <a class="pant-btn" href="/history/{e.id}">› detalhes</a>
+                  {#if canDelete(e)}
+                    <button
+                      type="button"
+                      class="pant-btn pant-btn-danger"
+                      title="Excluir este aporte do histórico"
+                      disabled={deletingId === e.id}
+                      onclick={() => handleDelete(e)}
+                    >
+                      {deletingId === e.id ? "…" : "× excluir"}
+                    </button>
+                  {/if}
+                </div>
               </td>
             </tr>
           {/each}
         </tbody>
       </table>
-    </div>
+    </Panel>
   {/if}
 </section>
+
+<style>
+  .empty {
+    text-align: center;
+    padding: 24px 12px;
+    display: grid;
+    gap: 14px;
+    justify-items: center;
+  }
+  .empty-line { color: var(--ink-dim); font-size: 13px; margin: 0; }
+
+  .hist-grid .col-when { width: 28%; }
+  .hist-grid .col-actions { width: 220px; }
+  .actions {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+  }
+</style>

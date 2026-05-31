@@ -1,6 +1,5 @@
 import os
 
-import pytest
 
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
