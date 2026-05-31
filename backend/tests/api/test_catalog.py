@@ -5,6 +5,7 @@ from httpx import AsyncClient, Response
 
 from app.market_data.brapi import _AVAILABLE_URL
 from app.market_data.coingecko import _SEARCH_ENDPOINT
+from app.models.ticker_catalog import TickerCatalog
 
 
 async def _register_and_login(client: AsyncClient, email: str) -> str:
@@ -82,9 +83,6 @@ async def test_search_unsupported_type_returns_empty(client: AsyncClient) -> Non
     )
     assert r.status_code == 200
     assert r.json() == []
-
-
-from app.models.ticker_catalog import TickerCatalog
 
 
 async def _seed_catalog(session_maker) -> None:

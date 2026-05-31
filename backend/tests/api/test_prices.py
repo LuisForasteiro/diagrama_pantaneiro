@@ -190,3 +190,57 @@ async def test_refresh_does_not_remigrate_on_subsequent_calls(
         assert abs(refreshed.amount - 2.148) < 1e-6
         # price picked up the new value
         assert refreshed.current_price == 520.0
+
+
+async def test_refresh_stamps_price_updated_at(session_maker) -> None:
+    """A successful refresh records when the price was fetched, so the UI
+    can show how fresh each price is. A crypto position routes to CoinGecko
+    regardless of BRAPI_TOKEN, keeping this deterministic."""
+    import uuid
+
+    from unittest.mock import AsyncMock, patch
+
+    from app.market_data.base import PriceQuote
+    from app.models.portfolio import Portfolio as PortfolioModel
+    from app.models.position import Position
+    from app.services.refresh_prices import refresh_portfolio_prices
+
+    async with session_maker() as session:
+        user_id = uuid.uuid4()
+        portfolio = PortfolioModel(
+            id=uuid.uuid4(), user_id=user_id, name="Principal", is_default=True
+        )
+        session.add(portfolio)
+        await session.flush()
+        p = Position(
+            user_id=user_id,
+            portfolio_id=portfolio.id,
+            name="BTC",
+            asset_type="criptomoedas",
+            amount=0.5,
+            current_price=None,
+            strength=5,
+            source="user",
+        )
+        session.add(p)
+        await session.commit()
+        p_id = p.id
+        portfolio_id = portfolio.id
+
+    with patch(
+        "app.market_data.coingecko.CoinGeckoAdapter.fetch_price",
+        new=AsyncMock(
+            return_value=PriceQuote.now(external_id="BTC", price_brl=350000.0)
+        ),
+    ):
+        async with session_maker() as session:
+            await refresh_portfolio_prices(session, portfolio_id)
+
+    async with session_maker() as session:
+        from sqlalchemy import select
+
+        refreshed = (
+            await session.execute(select(Position).where(Position.id == p_id))
+        ).scalar_one()
+        assert refreshed.current_price == 350000.0
+        assert refreshed.price_updated_at is not None

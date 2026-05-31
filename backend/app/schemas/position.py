@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic.alias_generators import to_camel
@@ -24,6 +25,7 @@ class PositionOut(BaseModel):
     amount: float
     current_price: float | None = None
     current_value_brl: float  # derived: price x amount OR amount (RF)
+    price_updated_at: datetime | None = None
     strength: int
     diagram_responses: list[str] | None = None
     source: str

@@ -43,6 +43,7 @@ def _to_out(p: Position) -> PositionOut:
         amount=p.amount,
         current_price=p.current_price,
         current_value_brl=current_value,
+        price_updated_at=p.price_updated_at,
         strength=p.strength,
         diagram_responses=p.diagram_responses,
         source=p.source,

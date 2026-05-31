@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,6 +64,7 @@ async def refresh_portfolio_prices(
             p.amount = p.amount / quote.price_brl
 
         p.current_price = quote.price_brl
+        p.price_updated_at = datetime.now(timezone.utc)
         result.refreshed += 1
 
     # Run adapters in parallel; a failure in one doesn't block others.

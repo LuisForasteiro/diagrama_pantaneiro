@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import respx
+from httpx import Response
 from sqlalchemy import select
 
+from app.market_data.brapi import _AVAILABLE_URL
 from app.models.ticker_catalog import TickerCatalog
+from app.services.catalog_sync import _COINGECKO_LIST, sync_catalog
 
 
 async def test_ticker_catalog_table_exists(session_maker) -> None:
@@ -17,13 +21,6 @@ async def test_ticker_catalog_table_exists(session_maker) -> None:
             )
         ).scalars().all()
         assert [r.symbol for r in rows] == ["PETR4"]
-
-
-import respx
-from httpx import Response
-
-from app.services.catalog_sync import sync_catalog, _COINGECKO_LIST
-from app.market_data.brapi import _AVAILABLE_URL
 
 
 @respx.mock

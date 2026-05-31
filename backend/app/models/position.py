@@ -26,6 +26,9 @@ class Position(Base):
     effective_class: Mapped[str | None] = mapped_column(String(48), nullable=True)
     amount: Mapped[float] = mapped_column(Float)
     current_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     strength: Mapped[int] = mapped_column(Integer)
     diagram_responses: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     source: Mapped[str] = mapped_column(String(16), default="auvp_import")
