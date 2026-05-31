@@ -9,7 +9,7 @@
   import { authStore } from "$lib/stores/auth";
   import { portfolioStore } from "$lib/stores/portfolio";
   import { privacyStore } from "$lib/stores/privacy";
-  import { formatBrl, formatBrlCompact, formatQty } from "$lib/format";
+  import { formatBrl, formatBrlCompact, formatQty, formatPriceAge } from "$lib/format";
   import {
     CLASS_LABELS,
     REGION_COLOR,
@@ -156,6 +156,16 @@
   });
 
   let totalValue = $derived(positions.reduce((s, p) => s + p.currentValueBrl, 0));
+
+  // Frescor do preço mais recente entre as posições (rótulo abaixo do refresh).
+  let newestPriceAge = $derived.by(() => {
+    const stamps = positions
+      .map((p) => p.priceUpdatedAt)
+      .filter((s): s is string => !!s)
+      .sort();
+    const newest = stamps.at(-1) ?? null;
+    return formatPriceAge(newest);
+  });
 
   let classCurrentPct = $derived.by(() => {
     const byType: Record<string, number> = {};
@@ -324,6 +334,12 @@
     <p class="toast" class:toast-err={refreshFailed}>
       <span class="prompt">»</span>
       {refreshMessage}
+    </p>
+  {/if}
+
+  {#if newestPriceAge}
+    <p class="price-age" class:price-age-stale={newestPriceAge.stale}>
+      preços atualizados {newestPriceAge.text}{newestPriceAge.stale ? " · pode estar desatualizado" : ""}
     </p>
   {/if}
 
@@ -801,6 +817,8 @@
     font-size: 12px;
   }
   .toast-err { color: var(--negative); border-color: #3a1a1a; }
+  .price-age { font-size: 12px; color: var(--ink-muted); margin: 4px 0 0; }
+  .price-age-stale { color: var(--accent); }
   .loading { color: var(--ink-dim); font-size: 13px; padding: 20px 4px; }
   .blink { color: var(--accent); animation: blink 1s steps(1) infinite; }
   @keyframes blink { 50% { opacity: 0; } }

@@ -23,6 +23,7 @@ export interface PositionOut {
   amount: number;
   currentPrice: number | null;
   currentValueBrl: number;
+  priceUpdatedAt: string | null;
   strength: number;
   diagramResponses: string[] | null;
   source: string;
