@@ -19,10 +19,13 @@
     type Region,
   } from "$lib/classLabels";
   import EditTargetsModal from "$lib/components/EditTargetsModal.svelte";
+  import EditCategoriesModal from "$lib/components/EditCategoriesModal.svelte";
   import Modal from "$lib/components/Modal.svelte";
   import AporteFlow from "$lib/components/AporteFlow.svelte";
   import PositionForm from "$lib/components/PositionForm.svelte";
-  import type { PositionOut, TargetOut } from "$lib/types/api";
+  import { getCategories } from "$lib/api/categories";
+  import { leafEffectiveTargets } from "$lib/categories";
+  import type { PositionOut, TargetOut, CategoryTree } from "$lib/types/api";
 
   const CLASS_ABBR: Record<string, string> = {
     acoes_nacionais: "ACN",
@@ -61,9 +64,13 @@
   let refreshFailed = $state(false);
 
   let showTargetsModal = $state(false);
+  let showCategoriesModal = $state(false);
   let showAporteModal = $state(false);
   let showAddPositionModal = $state(false);
   let hoveredClass = $state<string | null>(null);
+
+  let categoryTree = $state<CategoryTree>({ groups: [] });
+  let hasCategories = $derived(categoryTree.groups.length > 0);
 
   async function reloadEverything() {
     try {
@@ -114,7 +121,14 @@
     loading = true;
     error = null;
     try {
-      [positions, targets] = await Promise.all([listPositions(), listTargets()]);
+      const [pos, tgts, cats] = await Promise.all([
+        listPositions(),
+        listTargets(),
+        getCategories(),
+      ]);
+      positions = pos;
+      targets = tgts;
+      categoryTree = cats;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
@@ -147,7 +161,14 @@
 
   onMount(async () => {
     try {
-      [positions, targets] = await Promise.all([listPositions(), listTargets()]);
+      const [pos, tgts, cats] = await Promise.all([
+        listPositions(),
+        listTargets(),
+        getCategories(),
+      ]);
+      positions = pos;
+      targets = tgts;
+      categoryTree = cats;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
@@ -438,6 +459,9 @@
         <button type="button" class="btn btn-ghost" onclick={() => (showTargetsModal = true)}>
           › editar_metas
         </button>
+        <button type="button" class="btn btn-ghost" onclick={() => (showCategoriesModal = true)}>
+          › editar_categorias
+        </button>
       </header>
 
       <div class="targets">
@@ -649,6 +673,18 @@
         showTargetsModal = false;
       }}
       onclose={() => (showTargetsModal = false)}
+    />
+  {/if}
+
+  {#if showCategoriesModal}
+    <EditCategoriesModal
+      onsaved={async () => {
+        showCategoriesModal = false;
+        const [cats, pos] = await Promise.all([getCategories(), listPositions()]);
+        categoryTree = cats;
+        positions = pos;
+      }}
+      onclose={() => (showCategoriesModal = false)}
     />
   {/if}
 
