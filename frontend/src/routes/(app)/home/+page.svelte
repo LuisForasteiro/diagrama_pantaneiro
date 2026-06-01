@@ -178,6 +178,37 @@
 
   let totalValue = $derived(positions.reduce((s, p) => s + p.currentValueBrl, 0));
 
+  // Linhas do painel por categoria: para cada folha, nome (grupo › sub),
+  // meta efetiva (%) e % atual (valor das posições daquela folha / total).
+  let categoryRows = $derived.by(() => {
+    if (categoryTree.groups.length === 0) return [];
+    const eff = leafEffectiveTargets(categoryTree);
+    const currentByLeaf: Record<string, number> = {};
+    for (const p of positions) {
+      if (p.categoryId) {
+        currentByLeaf[p.categoryId] =
+          (currentByLeaf[p.categoryId] ?? 0) + p.currentValueBrl;
+      }
+    }
+    const rows: { id: string; label: string; target: number; current: number }[] = [];
+    for (const g of categoryTree.groups) {
+      const leavesOfGroup =
+        g.children.length === 0
+          ? [{ id: g.id, label: g.name }]
+          : g.children.map((c) => ({ id: c.id, label: `${g.name} › ${c.name}` }));
+      for (const leaf of leavesOfGroup) {
+        const curVal = currentByLeaf[leaf.id] ?? 0;
+        rows.push({
+          id: leaf.id,
+          label: leaf.label,
+          target: eff[leaf.id] ?? 0,
+          current: totalValue > 0 ? (curVal / totalValue) * 100 : 0,
+        });
+      }
+    }
+    return rows;
+  });
+
   // Frescor do preço mais recente entre as posições (rótulo abaixo do refresh).
   let newestPriceAge = $derived.by(() => {
     const stamps = positions
@@ -507,6 +538,49 @@
         {/each}
       </div>
     </section>
+
+    {#if hasCategories}
+      <section class="panel reveal" style="--delay: 150ms">
+        <div class="bracket bracket-tl"></div>
+        <div class="bracket bracket-tr"></div>
+        <div class="bracket bracket-bl"></div>
+        <div class="bracket bracket-br"></div>
+        <header class="panel-head">
+          <h2 class="panel-title">── metas_por_categoria ──</h2>
+        </header>
+        <div class="targets">
+          {#each categoryRows as r (r.id)}
+            {@const diff = r.current - r.target}
+            {@const max = Math.max(r.current, r.target, 20)}
+            <div class="target-row">
+              <div class="target-head">
+                <span class="target-name">{r.label}</span>
+                <span class="target-stats tab-nums">
+                  <span class="ink">{r.current.toFixed(1)}%</span>
+                  <span class="ink-muted">/</span>
+                  <span class="ink-dim">meta {r.target.toFixed(1)}%</span>
+                  {#if Math.abs(diff) > 0.5}
+                    <span class="diff" class:diff-over={diff > 0} class:diff-under={diff < 0}>
+                      [{diff > 0 ? "+" : ""}{diff.toFixed(1)}]
+                    </span>
+                  {/if}
+                </span>
+              </div>
+              <div class="bar-track">
+                <div
+                  class="bar-fill"
+                  class:over={diff > 0.5}
+                  class:under={diff < -0.5}
+                  class:match={Math.abs(diff) <= 0.5}
+                  style="width: {(r.current / max) * 100}%"
+                ></div>
+                <span class="target-marker" style="left: {(r.target / max) * 100}%">▼</span>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </section>
+    {/if}
 
     <!-- REGION EXPOSURE (visual only) -->
     {#if regionSegments.length > 0}
