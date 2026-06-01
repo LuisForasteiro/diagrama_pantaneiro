@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { createPosition } from "$lib/api/positions";
+  import { getCategories } from "$lib/api/categories";
   import DiagramChecklist from "$lib/components/DiagramChecklist.svelte";
   import AutocompleteInput from "$lib/components/AutocompleteInput.svelte";
   import type { CandidateOut, PositionOut } from "$lib/types/api";
@@ -21,6 +23,29 @@
   let diagramResponses = $state<string[]>([]);
   let submitting = $state(false);
   let error = $state<string | null>(null);
+
+  // Folhas (subgrupos sem filhos, ou grupos-folha) para atribuir a posição.
+  let leaves = $state<{ id: string; label: string }[]>([]);
+  let categoryId = $state<string>("");
+
+  onMount(async () => {
+    try {
+      const tree = await getCategories();
+      const out: { id: string; label: string }[] = [];
+      for (const g of tree.groups) {
+        if (g.children.length === 0) {
+          out.push({ id: g.id, label: g.name });
+        } else {
+          for (const c of g.children) {
+            out.push({ id: c.id, label: `${g.name} › ${c.name}` });
+          }
+        }
+      }
+      leaves = out;
+    } catch {
+      leaves = [];
+    }
+  });
 
   const TYPES = [
     { v: "acoes_nacionais", l: "Ações Nacionais" },
@@ -84,6 +109,7 @@
         currentPrice,
         strength: hasDiagram ? 0 : parseInt(strengthInput, 10),
         diagramResponses: hasDiagram ? diagramResponses : null,
+        categoryId: categoryId || null,
       });
       onCreated?.(created);
     } catch (err) {
@@ -136,6 +162,18 @@
       {/each}
     </select>
   </label>
+
+  {#if leaves.length > 0}
+    <label class="pant-label">
+      <span class="pant-label-text">Categoria (subgrupo)</span>
+      <select bind:value={categoryId} class="pant-input">
+        <option value="">— sem categoria —</option>
+        {#each leaves as leaf (leaf.id)}
+          <option value={leaf.id}>{leaf.label}</option>
+        {/each}
+      </select>
+    </label>
+  {/if}
 
   <label class="pant-label">
     <span class="pant-label-text">
