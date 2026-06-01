@@ -478,7 +478,8 @@
       </div>
     </section>
 
-    <!-- TARGETS -->
+    <!-- TARGETS (flat 9-class mode only; category mode uses metas_por_categoria) -->
+    {#if !hasCategories}
     <section class="panel reveal" style="--delay: 120ms">
       <div class="bracket bracket-tl"></div>
       <div class="bracket bracket-tr"></div>
@@ -519,9 +520,9 @@
               </span>
             </div>
             <div class="bar-track">
-              <!-- tick marks every 10% of rendered width -->
+              <!-- tick marks evenly across the track (10%..100% of its width) -->
               {#each Array(10) as _, i}
-                <span class="tick" style="left: {((i + 1) * 100) / 10 / (max / 100)}%"></span>
+                <span class="tick" style="left: {(i + 1) * 10}%"></span>
               {/each}
               <!-- fill -->
               <div
@@ -538,6 +539,7 @@
         {/each}
       </div>
     </section>
+    {/if}
 
     {#if hasCategories}
       <section class="panel reveal" style="--delay: 150ms">
@@ -547,6 +549,9 @@
         <div class="bracket bracket-br"></div>
         <header class="panel-head">
           <h2 class="panel-title">── metas_por_categoria ──</h2>
+          <button type="button" class="btn btn-ghost" onclick={() => (showCategoriesModal = true)}>
+            › editar_categorias
+          </button>
         </header>
         <div class="targets">
           {#each categoryRows as r (r.id)}
@@ -796,6 +801,8 @@
     margin: 0 auto;
     padding: 32px 28px 96px;
     color: var(--ink);
+    /* Defense in depth: never let a stray child create page-wide x-scroll. */
+    overflow-x: hidden;
   }
 
   .ink { color: var(--ink); }
@@ -888,7 +895,7 @@
     letter-spacing: 0.04em;
   }
 
-  .nav { display: flex; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; }
+  .nav { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 
   .btn {
     background: transparent;
