@@ -558,7 +558,7 @@
             {@const diff = r.current - r.target}
             {@const max = Math.max(r.current, r.target, 20)}
             <div class="target-row">
-              <div class="target-head">
+              <div class="cat-head">
                 <span class="target-name">{r.label}</span>
                 <span class="target-stats tab-nums">
                   <span class="ink">{r.current.toFixed(1)}%</span>
@@ -1054,6 +1054,17 @@
   .target-abbr { font-weight: 700; letter-spacing: 0.05em; }
   .target-name { color: var(--ink); font-weight: 500; }
   .target-stats { font-size: 12px; display: flex; gap: 6px; }
+  /* Category rows have no abbr and can carry long labels ("Internacional ›
+     Renda Fixa americana"). 2-col grid: name shrinks/wraps, stats stay put. */
+  .cat-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: baseline;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .cat-head .target-stats { white-space: nowrap; }
   .diff-over { color: var(--negative); font-weight: 700; }
   .diff-under { color: var(--info); font-weight: 700; }
 
