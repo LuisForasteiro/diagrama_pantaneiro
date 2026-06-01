@@ -16,9 +16,11 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.category import Category
 from app.models.diagram_question import DiagramQuestion
 from app.models.investment_target import InvestmentTarget
 from app.models.position import Position
+from app.services.categories import CatNode, leaf_effective_targets
 from app.services.types import Asset, Portfolio, Question
 
 
@@ -55,23 +57,59 @@ async def load_portfolio(
         )
     ).scalars().all()
 
+    # Detect mode: any category for this portfolio -> hierarchical category mode.
+    cat_rows = (
+        await session.execute(
+            select(Category).where(Category.portfolio_id == portfolio_id)
+        )
+    ).scalars().all()
+
     # Semantic override: when effective_class is set, the algorithm and any
     # downstream aggregator treat the position as that class. The original
     # asset_type stays in the DB row (used only for price-routing in
     # market_data/registry.py and for the UI to show the override badge).
-    assets = [
-        Asset(
-            id=str(p.id),
-            type=(p.effective_class or p.asset_type),  # type: ignore[arg-type]
-            name=p.name,
-            amount=p.amount,
-            strength=p.strength,
-            current_price=p.current_price,
-            diagram_responses=p.diagram_responses,
-        )
-        for p in pos_rows
-    ]
-    targets = {t.asset_type: t.target_percentage for t in tgt_rows}
+    if cat_rows:
+        nodes = [
+            CatNode(
+                id=str(c.id),
+                parent_id=(str(c.parent_id) if c.parent_id is not None else None),
+                name=c.name,
+                weight_pct=c.weight_pct,
+                display_order=c.display_order,
+            )
+            for c in cat_rows
+        ]
+        targets = leaf_effective_targets(nodes)
+        # Asset.group_key = the position's leaf category id (None if uncategorized;
+        # uncategorized assets then fall back to their class, which has no target
+        # in category mode, so they receive no aporte — exactly the desired rule).
+        assets = [
+            Asset(
+                id=str(p.id),
+                type=(p.effective_class or p.asset_type),  # type: ignore[arg-type]
+                name=p.name,
+                amount=p.amount,
+                strength=p.strength,
+                current_price=p.current_price,
+                diagram_responses=p.diagram_responses,
+                group_key=(str(p.category_id) if p.category_id is not None else None),
+            )
+            for p in pos_rows
+        ]
+    else:
+        assets = [
+            Asset(
+                id=str(p.id),
+                type=(p.effective_class or p.asset_type),  # type: ignore[arg-type]
+                name=p.name,
+                amount=p.amount,
+                strength=p.strength,
+                current_price=p.current_price,
+                diagram_responses=p.diagram_responses,
+            )
+            for p in pos_rows
+        ]
+        targets = {t.asset_type: t.target_percentage for t in tgt_rows}
     questions = [
         Question(
             id=q.external_id or str(q.id),

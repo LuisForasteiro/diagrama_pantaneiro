@@ -104,3 +104,87 @@ async def test_loader_emits_effective_class_when_set(
     portfolio = await load_portfolio(session, user_id, portfolio_row.id)
     obtc3 = next(a for a in portfolio.assets if a.name == "OBTC3")
     assert obtc3.type == "criptomoedas"
+
+
+async def test_loader_category_mode_sets_group_keys_and_effective_targets(
+    session_maker,
+) -> None:
+    from app.models.category import Category
+    from app.models.position import Position
+
+    async with session_maker() as session:
+        uid = uuid.uuid4()
+        pf = PortfolioModel(id=uuid.uuid4(), user_id=uid, name="P", is_default=True)
+        session.add(pf)
+        await session.flush()
+        # Brasil 100% -> Ações 60 / RF 40
+        g = Category(
+            user_id=uid, portfolio_id=pf.id, parent_id=None,
+            name="Brasil", weight_pct=100.0, display_order=0,
+        )
+        session.add(g)
+        await session.flush()
+        acoes = Category(
+            user_id=uid, portfolio_id=pf.id, parent_id=g.id,
+            name="Ações", weight_pct=60.0, display_order=0,
+        )
+        rf = Category(
+            user_id=uid, portfolio_id=pf.id, parent_id=g.id,
+            name="RF", weight_pct=40.0, display_order=1,
+        )
+        session.add_all([acoes, rf])
+        await session.flush()
+        session.add(
+            Position(
+                user_id=uid, portfolio_id=pf.id, name="BBAS3",
+                asset_type="acoes_nacionais", amount=10, strength=5,
+                current_price=10.0, category_id=acoes.id,
+            )
+        )
+        await session.commit()
+        acoes_id = str(acoes.id)
+        rf_id = str(rf.id)
+        pf_id = pf.id
+        uid2 = uid
+
+    async with session_maker() as session:
+        portfolio = await load_portfolio(session, uid2, pf_id)
+
+    # meta efetiva por folha: Ações = 100% x 60% = 60; RF = 40
+    assert portfolio.targets[acoes_id] == 60.0
+    assert portfolio.targets[rf_id] == 40.0
+    # group_key do asset = categoria folha
+    assert portfolio.assets[0].group_key == acoes_id
+
+
+async def test_loader_flat_mode_unchanged_when_no_categories(session_maker) -> None:
+    from app.models.investment_target import InvestmentTarget
+    from app.models.position import Position
+
+    async with session_maker() as session:
+        uid = uuid.uuid4()
+        pf = PortfolioModel(id=uuid.uuid4(), user_id=uid, name="P2", is_default=True)
+        session.add(pf)
+        await session.flush()
+        session.add(
+            InvestmentTarget(
+                user_id=uid, portfolio_id=pf.id,
+                asset_type="acoes_nacionais", target_percentage=100.0,
+            )
+        )
+        session.add(
+            Position(
+                user_id=uid, portfolio_id=pf.id, name="BBAS3",
+                asset_type="acoes_nacionais", amount=10, strength=5,
+                current_price=10.0,
+            )
+        )
+        await session.commit()
+        pf_id = pf.id
+        uid2 = uid
+
+    async with session_maker() as session:
+        portfolio = await load_portfolio(session, uid2, pf_id)
+
+    assert portfolio.targets == {"acoes_nacionais": 100.0}
+    assert portfolio.assets[0].group_key is None  # modo plano
