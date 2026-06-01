@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     aportes,
     catalog,
+    categories,
     diagram_questions,
     health,
     portfolios,
@@ -57,6 +58,7 @@ app.include_router(aportes.router)
 app.include_router(diagram_questions.router)
 app.include_router(prices.router)
 app.include_router(catalog.router)
+app.include_router(categories.router)
 
 for router, prefix, tags in build_auth_routers():
     app.include_router(router, prefix=prefix, tags=tags)
