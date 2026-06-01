@@ -10,8 +10,10 @@
 
   let { onsaved, onclose }: Props = $props();
 
-  interface SubDraft { name: string; weightPct: number }
-  interface GroupDraft { name: string; weightPct: number; children: SubDraft[] }
+  // id is kept so a save UPDATES existing categories in place (preserving
+  // position links) instead of recreating them. New nodes have id undefined.
+  interface SubDraft { id?: string; name: string; weightPct: number }
+  interface GroupDraft { id?: string; name: string; weightPct: number; children: SubDraft[] }
 
   let groups = $state<GroupDraft[]>([]);
   let loading = $state(true);
@@ -22,9 +24,11 @@
     try {
       const tree = await getCategories();
       groups = tree.groups.map((g) => ({
+        id: g.id,
         name: g.name,
         weightPct: Math.round(g.weightPct),
         children: g.children.map((c) => ({
+          id: c.id,
           name: c.name,
           weightPct: Math.round(c.weightPct),
         })),
@@ -74,9 +78,11 @@
     serverError = null;
     const body: CategoryTreeIn = {
       groups: groups.map((g) => ({
+        id: g.id ?? null,
         name: g.name.trim(),
         weightPct: g.weightPct,
         children: g.children.map((c) => ({
+          id: c.id ?? null,
           name: c.name.trim(),
           weightPct: c.weightPct,
         })),

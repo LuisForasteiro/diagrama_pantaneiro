@@ -7,6 +7,9 @@ from pydantic.alias_generators import to_camel
 
 
 class SubcategoryIn(BaseModel):
+    # id is present for nodes that already exist (so the server updates in
+    # place instead of recreating, preserving position links). Absent = new.
+    id: uuid.UUID | None = None
     name: str = Field(min_length=1, max_length=64)
     weight_pct: float = Field(ge=0, le=100)
 
@@ -21,6 +24,7 @@ class SubcategoryIn(BaseModel):
 
 
 class GroupIn(BaseModel):
+    id: uuid.UUID | None = None
     name: str = Field(min_length=1, max_length=64)
     weight_pct: float = Field(ge=0, le=100)
     children: list[SubcategoryIn] = Field(default_factory=list)

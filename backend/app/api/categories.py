@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import current_active_user
@@ -18,6 +18,7 @@ from app.api.deps import get_active_portfolio
 from app.core.db import get_async_session
 from app.models.category import Category
 from app.models.portfolio import Portfolio
+from app.models.position import Position
 from app.models.user import User
 from app.schemas.category import (
     CategoryTreeIn,
@@ -83,38 +84,63 @@ async def replace_categories(
     except CategoryValidationError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
-    # Replace wholesale: delete existing, then recreate. SET NULL on positions
-    # keeps positions alive (they become uncategorized until re-assigned).
-    existing = (
-        await session.execute(
-            select(Category).where(Category.portfolio_id == portfolio.id)
-        )
-    ).scalars().all()
-    for row in existing:
-        await session.delete(row)
-    await session.flush()
+    # Reconcile by id (mirrors PUT /api/targets' update-in-place pattern):
+    # nodes that arrive with an id matching an existing row are UPDATED in
+    # place — keeping the id so positions stay linked. New nodes (no id, or an
+    # id not in this portfolio) are inserted. Removed nodes are deleted, and
+    # their positions' category_id is explicitly NULLed (we can't rely on the
+    # ON DELETE SET NULL FK because SQLite ships with FK enforcement off).
+    existing = {
+        c.id: c
+        for c in (
+            await session.execute(
+                select(Category).where(Category.portfolio_id == portfolio.id)
+            )
+        ).scalars().all()
+    }
+    seen: set[uuid.UUID] = set()
+
+    async def _upsert(
+        node_id: uuid.UUID | None,
+        parent_id: uuid.UUID | None,
+        name: str,
+        weight: float,
+        order: int,
+    ) -> Category:
+        cat = existing.get(node_id) if node_id is not None else None
+        if cat is None:
+            cat = Category(
+                user_id=user.id,
+                portfolio_id=portfolio.id,
+                parent_id=parent_id,
+                name=name,
+                weight_pct=weight,
+                display_order=order,
+            )
+            session.add(cat)
+            await session.flush()
+        else:
+            cat.parent_id = parent_id
+            cat.name = name
+            cat.weight_pct = weight
+            cat.display_order = order
+        seen.add(cat.id)
+        return cat
 
     for gi, g in enumerate(body.groups):
-        grp = Category(
-            user_id=user.id,
-            portfolio_id=portfolio.id,
-            parent_id=None,
-            name=g.name,
-            weight_pct=g.weight_pct,
-            display_order=gi,
-        )
-        session.add(grp)
-        await session.flush()
+        grp = await _upsert(g.id, None, g.name, g.weight_pct, gi)
         for ci, c in enumerate(g.children):
-            session.add(
-                Category(
-                    user_id=user.id,
-                    portfolio_id=portfolio.id,
-                    parent_id=grp.id,
-                    name=c.name,
-                    weight_pct=c.weight_pct,
-                    display_order=ci,
-                )
-            )
+            await _upsert(c.id, grp.id, c.name, c.weight_pct, ci)
+
+    removed_ids = [cid for cid in existing if cid not in seen]
+    if removed_ids:
+        await session.execute(
+            update(Position)
+            .where(Position.category_id.in_(removed_ids))
+            .values(category_id=None)
+        )
+        for cid in removed_ids:
+            await session.delete(existing[cid])
+
     await session.commit()
     return await _load_tree(session, portfolio.id)

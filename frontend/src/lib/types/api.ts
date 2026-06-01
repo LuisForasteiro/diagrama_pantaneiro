@@ -170,11 +170,13 @@ export interface CategoryTree {
 }
 
 export interface SubcategoryIn {
+  id?: string | null;
   name: string;
   weightPct: number;
 }
 
 export interface CategoryGroupIn {
+  id?: string | null;
   name: string;
   weightPct: number;
   children: SubcategoryIn[];
