@@ -24,6 +24,11 @@ class Position(Base):
     # Semantic override: when set, algorithm/metas/donut treat the position as
     # this class. asset_type stays for price-routing (market_data/registry.py).
     effective_class: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    # Allocation category leaf (when the portfolio uses hierarchical metas).
+    # SET NULL on category delete so the position survives as "uncategorized".
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     amount: Mapped[float] = mapped_column(Float)
     current_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     price_updated_at: Mapped[datetime | None] = mapped_column(
