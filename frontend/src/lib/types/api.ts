@@ -24,6 +24,7 @@ export interface PositionOut {
   currentPrice: number | null;
   currentValueBrl: number;
   priceUpdatedAt: string | null;
+  categoryId: string | null;
   strength: number;
   diagramResponses: string[] | null;
   source: string;
@@ -60,6 +61,7 @@ export interface PositionCreate {
   name: string;
   assetType: string;
   effectiveClass?: string | null;
+  categoryId?: string | null;
   amount: number;
   currentPrice?: number | null;
   strength: number;
@@ -72,6 +74,7 @@ export interface PositionUpdate {
   strength?: number;
   diagramResponses?: string[] | null;
   effectiveClass?: string | null;
+  categoryId?: string | null;
 }
 
 export interface DiagramQuestionOut {
@@ -147,4 +150,36 @@ export interface PortfolioCreate {
 
 export interface PortfolioRename {
   name: string;
+}
+
+export interface Subcategory {
+  id: string;
+  name: string;
+  weightPct: number;
+}
+
+export interface CategoryGroup {
+  id: string;
+  name: string;
+  weightPct: number;
+  children: Subcategory[];
+}
+
+export interface CategoryTree {
+  groups: CategoryGroup[];
+}
+
+export interface SubcategoryIn {
+  name: string;
+  weightPct: number;
+}
+
+export interface CategoryGroupIn {
+  name: string;
+  weightPct: number;
+  children: SubcategoryIn[];
+}
+
+export interface CategoryTreeIn {
+  groups: CategoryGroupIn[];
 }
