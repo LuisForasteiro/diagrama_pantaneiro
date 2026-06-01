@@ -26,6 +26,7 @@ class PositionOut(BaseModel):
     current_price: float | None = None
     current_value_brl: float  # derived: price x amount OR amount (RF)
     price_updated_at: datetime | None = None
+    category_id: uuid.UUID | None = None
     strength: int
     diagram_responses: list[str] | None = None
     source: str
@@ -41,6 +42,7 @@ class PositionCreate(BaseModel):
     name: str
     asset_type: str
     effective_class: str | None = None
+    category_id: uuid.UUID | None = None
     amount: float
     current_price: float | None = None
     strength: int
@@ -60,6 +62,7 @@ class PositionUpdate(BaseModel):
     strength: int | None = None
     diagram_responses: list[str] | None = None
     effective_class: str | None = None
+    category_id: uuid.UUID | None = None
 
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 

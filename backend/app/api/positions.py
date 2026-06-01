@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.auth import current_active_user
 from app.api.deps import get_active_portfolio
 from app.core.db import get_async_session
+from app.models.category import Category
 from app.models.diagram_question import DiagramQuestion
 from app.models.portfolio import Portfolio
 from app.models.position import Position
@@ -44,10 +45,39 @@ def _to_out(p: Position) -> PositionOut:
         current_price=p.current_price,
         current_value_brl=current_value,
         price_updated_at=p.price_updated_at,
+        category_id=p.category_id,
         strength=p.strength,
         diagram_responses=p.diagram_responses,
         source=p.source,
     )
+
+
+async def _validate_leaf_category(
+    session: AsyncSession, portfolio_id: uuid.UUID, category_id: uuid.UUID | None
+) -> None:
+    """Ensure category_id (if given) is a leaf category of the active portfolio.
+    A leaf is a category with no children. Groups with children are rejected."""
+    if category_id is None:
+        return
+    cat = (
+        await session.execute(
+            select(Category).where(
+                Category.id == category_id,
+                Category.portfolio_id == portfolio_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if cat is None:
+        raise HTTPException(status_code=422, detail="category not found in portfolio")
+    has_children = (
+        await session.execute(
+            select(Category.id).where(Category.parent_id == category_id).limit(1)
+        )
+    ).first()
+    if has_children is not None:
+        raise HTTPException(
+            status_code=422, detail="category must be a leaf (no children)"
+        )
 
 
 async def _bank_size(
@@ -187,6 +217,7 @@ async def create_position(
     strength = await _compute_strength_if_diagram(
         session, user.id, body.asset_type, body.diagram_responses, body.strength
     )
+    await _validate_leaf_category(session, portfolio.id, body.category_id)
     pos = Position(
         user_id=user.id,
         portfolio_id=portfolio.id,
@@ -198,6 +229,7 @@ async def create_position(
         strength=strength,
         diagram_responses=body.diagram_responses,
         source="user",
+        category_id=body.category_id,
     )
     session.add(pos)
     await session.commit()
@@ -224,6 +256,8 @@ async def update_position(
         raise HTTPException(status_code=404, detail="position not found")
 
     updates = body.model_dump(exclude_unset=True)
+    if "category_id" in updates:
+        await _validate_leaf_category(session, portfolio.id, updates["category_id"])
     for k, v in updates.items():
         setattr(pos, k, v)
 

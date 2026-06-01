@@ -93,3 +93,88 @@ async def test_put_rejects_children_sum_not_100(client: AsyncClient) -> None:
     }
     r = await client.put("/api/categories", json=bad, headers=headers)
     assert r.status_code == 422
+
+
+async def _leaf_ids(client: AsyncClient, headers: dict) -> dict[str, str]:
+    """name -> id para as folhas da árvore _valid_tree()."""
+    tree = (await client.get("/api/categories", headers=headers)).json()
+    out: dict[str, str] = {}
+    for g in tree["groups"]:
+        if g["children"]:
+            for c in g["children"]:
+                out[c["name"]] = c["id"]
+        else:
+            out[g["name"]] = g["id"]
+    return out
+
+
+async def test_create_position_with_leaf_category(client: AsyncClient) -> None:
+    headers = await _login(client, "cat-pos-create@example.com")
+    await client.get("/api/positions", headers=headers)  # auto-seed
+    await client.put("/api/categories", json=_valid_tree(), headers=headers)
+    leaves = await _leaf_ids(client, headers)
+
+    r = await client.post(
+        "/api/positions",
+        json={
+            "name": "BBAS3",
+            "assetType": "acoes_nacionais",
+            "amount": 100,
+            "currentPrice": 50,
+            "strength": 5,
+            "categoryId": leaves["Ações"],
+        },
+        headers=headers,
+    )
+    assert r.status_code == 201
+    assert r.json()["categoryId"] == leaves["Ações"]
+
+
+async def test_create_position_rejects_group_as_category(client: AsyncClient) -> None:
+    headers = await _login(client, "cat-pos-grp@example.com")
+    await client.get("/api/positions", headers=headers)
+    await client.put("/api/categories", json=_valid_tree(), headers=headers)
+    tree = (await client.get("/api/categories", headers=headers)).json()
+    brasil_group_id = next(g["id"] for g in tree["groups"] if g["name"] == "Brasil")
+
+    r = await client.post(
+        "/api/positions",
+        json={
+            "name": "X",
+            "assetType": "acoes_nacionais",
+            "amount": 1,
+            "currentPrice": 1,
+            "strength": 5,
+            "categoryId": brasil_group_id,  # grupo com filhos: não é folha
+        },
+        headers=headers,
+    )
+    assert r.status_code == 422
+
+
+async def test_patch_position_sets_category(client: AsyncClient) -> None:
+    headers = await _login(client, "cat-pos-patch@example.com")
+    await client.get("/api/positions", headers=headers)
+    await client.put("/api/categories", json=_valid_tree(), headers=headers)
+    leaves = await _leaf_ids(client, headers)
+    btc_leaf = leaves["Bitcoin"]
+
+    created = await client.post(
+        "/api/positions",
+        json={
+            "name": "BTC",
+            "assetType": "criptomoedas",
+            "amount": 0.1,
+            "currentPrice": 100000,
+            "strength": 5,
+        },
+        headers=headers,
+    )
+    pid = created.json()["id"]
+    r = await client.patch(
+        f"/api/positions/{pid}",
+        json={"categoryId": btc_leaf},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["categoryId"] == btc_leaf
