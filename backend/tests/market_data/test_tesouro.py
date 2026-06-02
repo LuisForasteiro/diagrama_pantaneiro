@@ -41,12 +41,34 @@ async def test_picks_most_recent_row_for_same_title() -> None:
 
 
 @respx.mock
-async def test_matches_ipca_2035() -> None:
+async def test_matches_ipca_2035_picks_chronologically_newest() -> None:
+    """IPCA+ 2035 has rows 16/04/2026 (3200) and 01/06/2026 (3500). The newest
+    by DATE is 01/06 — even though '01/06' sorts BEFORE '16/04' as a string.
+    Must NOT pick the semestrais variant (3900) either."""
     respx.get(_CSV_URL).mock(
         return_value=Response(200, text=_fixture_csv_text())
     )
     quote = await TesouroAdapter().fetch_price("TESOURO IPCA+ 2035")
-    assert quote.price_brl == pytest.approx(3200.00)
+    assert quote.price_brl == pytest.approx(3500.00)
+
+
+@respx.mock
+async def test_semestrais_variant_is_distinct() -> None:
+    """'Tesouro IPCA+' and 'Tesouro IPCA+ com Juros Semestrais' must NOT
+    collapse: search lists both, and a semestrais position prices to its
+    own row (3900), not the plain one."""
+    respx.get(_CSV_URL).mock(
+        return_value=Response(200, text=_fixture_csv_text())
+    )
+    candidates = await TesouroAdapter().search("ipca")
+    names = [c.name for c in candidates]
+    plain = [n for n in names if "SEMESTRAIS" not in n.upper()]
+    semes = [n for n in names if "SEMESTRAIS" in n.upper()]
+    assert plain, f"esperava um IPCA+ simples em {names}"
+    assert semes, f"esperava um IPCA+ semestrais em {names}"
+
+    quote = await TesouroAdapter().fetch_price(semes[0])
+    assert quote.price_brl == pytest.approx(3900.00)
 
 
 @respx.mock

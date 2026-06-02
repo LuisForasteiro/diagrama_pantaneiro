@@ -49,6 +49,13 @@ async def _load_csv() -> pd.DataFrame:
             return cached[0]
         raise AdapterNetworkError(f"Tesouro CSV fetch failed: {e}") from e
 
+    # "Data Base" comes as dd/mm/yyyy TEXT. Sorting it as a string is
+    # chronologically wrong (e.g. "31/12/2015" > "01/06/2026"), which made the
+    # adapter pick stale rows and return prices ~10 years old. Parse it once to
+    # a real datetime so every sort/most-recent pick is by actual date.
+    df["_data_base_dt"] = pd.to_datetime(
+        df["Data Base"], dayfirst=True, errors="coerce"
+    )
     _cache["csv"] = (df, now)
     return df
 
@@ -78,6 +85,13 @@ def _product_of(title_or_name: str) -> str | None:
     return None
 
 
+def _is_semestrais(title_or_name: str) -> bool:
+    """Distinguish "com Juros Semestrais" variants. They share a product family
+    (e.g. ipca) with the plain title, so without this they collapse together —
+    hiding titles in search and crossing prices in fetch."""
+    return "semestrais" in _normalize(title_or_name)
+
+
 class TesouroAdapter:
     async def search(self, query: str) -> list[Candidate]:
         """Search titles in the cached CSV. Matches query against the product
@@ -95,8 +109,8 @@ class TesouroAdapter:
         q_product = _product_of(query)
         # If the query doesn't identify a product yet (user typed "tes"),
         # return one representative row per product so they can drill in.
-        df_sorted = df.sort_values(by="Data Base", ascending=False)
-        seen: set[tuple[str, str]] = set()
+        df_sorted = df.sort_values(by="_data_base_dt", ascending=False)
+        seen: set[tuple[str, bool, str]] = set()
         results: list[Candidate] = []
 
         for _, row in df_sorted.iterrows():
@@ -107,9 +121,10 @@ class TesouroAdapter:
             if q_product is not None and title_product != q_product:
                 continue
 
+            semestrais = _is_semestrais(title_raw)
             maturity = str(row.get("Data Vencimento", ""))
             year = maturity.split("/")[-1] if maturity else ""
-            key = (title_product, year)
+            key = (title_product, semestrais, year)
             if key in seen:
                 continue
             seen.add(key)
@@ -120,9 +135,15 @@ class TesouroAdapter:
             )
 
             display_year = year if year else "sem ano"
+            base = f"TESOURO {title_product.upper()}+"
+            name = (
+                f"{base} JUROS SEMESTRAIS {display_year}"
+                if semestrais
+                else f"{base} {display_year}"
+            )
             results.append(
                 Candidate(
-                    name=f"TESOURO {title_product.upper()}+ {display_year}",
+                    name=name,
                     label=title_raw,
                     current_price_brl=price_float,
                 )
@@ -143,13 +164,14 @@ class TesouroAdapter:
         df = await _load_csv()
         needle = _normalize(external_id)
         needle_product = _product_of(external_id)
+        needle_semestrais = _is_semestrais(external_id)
 
         if needle_product is None:
             raise AdapterNotFoundError(
                 f"Tesouro: could not identify product family in '{external_id}'"
             )
 
-        df_sorted = df.sort_values(by="Data Base", ascending=False)
+        df_sorted = df.sort_values(by="_data_base_dt", ascending=False)
 
         candidate_years: set[str] = set()
 
@@ -157,6 +179,8 @@ class TesouroAdapter:
             title_raw = str(row.get("Tipo Titulo", ""))
             title_product = _product_of(title_raw)
             if title_product != needle_product:
+                continue
+            if _is_semestrais(title_raw) != needle_semestrais:
                 continue
 
             maturity = str(row.get("Data Vencimento", ""))
