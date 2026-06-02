@@ -9,7 +9,7 @@
   import { authStore } from "$lib/stores/auth";
   import { portfolioStore } from "$lib/stores/portfolio";
   import { privacyStore } from "$lib/stores/privacy";
-  import { formatBrl, formatBrlCompact, formatQty, formatPriceAge } from "$lib/format";
+  import { formatBrl, formatBrlCompact, formatQty } from "$lib/format";
   import {
     CLASS_LABELS,
     REGION_COLOR,
@@ -23,8 +23,10 @@
   import Modal from "$lib/components/Modal.svelte";
   import AporteFlow from "$lib/components/AporteFlow.svelte";
   import PositionForm from "$lib/components/PositionForm.svelte";
+  import KpiBar from "$lib/components/KpiBar.svelte";
   import { getCategories } from "$lib/api/categories";
   import { leafEffectiveTargets } from "$lib/categories";
+  import { offTargetCount } from "$lib/portfolioMetrics";
   import type { PositionOut, TargetOut, CategoryTree } from "$lib/types/api";
 
   const CLASS_ABBR: Record<string, string> = {
@@ -209,14 +211,13 @@
     return rows;
   });
 
-  // Frescor do preço mais recente entre as posições (rótulo abaixo do refresh).
-  let newestPriceAge = $derived.by(() => {
+  // Timestamp do preço mais recente entre as posições (exibido no KpiBar).
+  let newestPriceStamp = $derived.by(() => {
     const stamps = positions
       .map((p) => p.priceUpdatedAt)
       .filter((s): s is string => !!s)
       .sort();
-    const newest = stamps.at(-1) ?? null;
-    return formatPriceAge(newest);
+    return stamps.at(-1) ?? null;
   });
 
   let classCurrentPct = $derived.by(() => {
@@ -229,6 +230,17 @@
     for (const [t, v] of Object.entries(byType)) out[t] = totalValue > 0 ? (v / totalValue) * 100 : 0;
     return out;
   });
+
+  // Linhas meta-vs-atual ativas (por categoria se houver, senão classes planas).
+  let metaRows = $derived(
+    hasCategories
+      ? categoryRows.map((r) => ({ current: r.current, target: r.target }))
+      : targets.map((t) => ({
+          current: classCurrentPct[t.assetType] ?? 0,
+          target: t.targetPercentage,
+        })),
+  );
+  let offTarget = $derived(offTargetCount(metaRows, 1));
 
   // Region exposure (visual only) — derived from displayClass per position
   type RegionSegment = { region: Region; label: string; pct: number; value: number; color: string; offset: number };
@@ -389,17 +401,19 @@
     </p>
   {/if}
 
-  {#if newestPriceAge}
-    <p class="price-age" class:price-age-stale={newestPriceAge.stale}>
-      preços atualizados {newestPriceAge.text}{newestPriceAge.stale ? " · pode estar desatualizado" : ""}
-    </p>
-  {/if}
-
   {#if loading}
     <p class="loading"><span class="blink">█</span> carregando carteira</p>
   {:else if error}
     <p class="toast toast-err"><span class="prompt">!</span> {error}</p>
   {:else}
+    <KpiBar
+      totalValue={totalValue}
+      positionCount={positions.length}
+      offTarget={offTarget}
+      priceUpdatedAtNewest={newestPriceStamp}
+      masked={masked}
+    />
+
     <!-- HERO: total + donut -->
     <section class="hero reveal" style="--delay: 0ms">
       <div class="bracket bracket-tl"></div>
@@ -934,8 +948,6 @@
     font-size: 12px;
   }
   .toast-err { color: var(--negative); border-color: #3a1a1a; }
-  .price-age { font-size: 12px; color: var(--ink-muted); margin: 4px 0 0; }
-  .price-age-stale { color: var(--accent); }
   .loading { color: var(--ink-dim); font-size: 13px; padding: 20px 4px; }
   .blink { color: var(--accent); animation: blink 1s steps(1) infinite; }
   @keyframes blink { 50% { opacity: 0; } }
