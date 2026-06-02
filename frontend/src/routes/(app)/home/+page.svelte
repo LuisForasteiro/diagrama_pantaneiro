@@ -69,6 +69,7 @@
   let showCategoriesModal = $state(false);
   let showAporteModal = $state(false);
   let showAddPositionModal = $state(false);
+  let showMoreMenu = $state(false);
   let hoveredClass = $state<string | null>(null);
 
   let categoryTree = $state<CategoryTree>({ groups: [] });
@@ -387,10 +388,17 @@
         {refreshing ? "› sincronizando…" : "› atualizar"}
       </button>
       <button class="btn" type="button" onclick={() => (showAddPositionModal = true)}>› adicionar</button>
-      <a class="btn" href="/diagram">› diagrama</a>
-      <a class="btn" href="/history">› histórico</a>
       <button class="btn btn-accent" type="button" onclick={() => (showAporteModal = true)}>› aporte ▸</button>
-      <button class="btn" onclick={handleLogout}>› sair</button>
+      <div class="more-wrap">
+        <button type="button" class="btn" aria-label="mais ações" onclick={() => (showMoreMenu = !showMoreMenu)}>› ···</button>
+        {#if showMoreMenu}
+          <div class="more-menu">
+            <a class="more-item" href="/diagram">diagrama</a>
+            <a class="more-item" href="/history">histórico</a>
+            <button class="more-item" type="button" onclick={handleLogout}>sair</button>
+          </div>
+        {/if}
+      </div>
     </nav>
   </div>
 
@@ -663,6 +671,7 @@
         <span class="panel-sub ink-dim">ordenar_por={sortKey} {sortDesc ? "desc" : "asc"}</span>
       </header>
 
+      <div class="table-scroll">
       <table class="grid">
         <thead>
           <tr>
@@ -755,6 +764,7 @@
           {/each}
         </tbody>
       </table>
+      </div>
     </section>
   {/if}
 
@@ -909,7 +919,30 @@
     letter-spacing: 0.04em;
   }
 
-  .nav { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  .nav { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; }
+  .more-wrap { position: relative; }
+  .more-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 30;
+    display: grid;
+    min-width: 140px;
+    border: 1px solid var(--hairline-strong);
+    background: var(--surface);
+  }
+  .more-item {
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+    padding: 8px 12px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .more-item:hover { background: var(--surface-raised); color: var(--accent); }
 
   .btn {
     background: transparent;
@@ -1113,9 +1146,12 @@
   }
 
   /* ── grid (positions) ───────────────────── */
+  /* Wrapper rola a tabela DENTRO do painel no mobile, nunca a página. */
+  .table-scroll { overflow-x: auto; }
   .grid {
     display: table;
     width: 100%;
+    min-width: 560px;
     border-collapse: collapse;
     font-size: 12px;
     table-layout: fixed;
