@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import io
 import time
+from datetime import datetime
 
 import httpx
 import pandas as pd
@@ -55,6 +56,9 @@ async def _load_csv() -> pd.DataFrame:
     # a real datetime so every sort/most-recent pick is by actual date.
     df["_data_base_dt"] = pd.to_datetime(
         df["Data Base"], dayfirst=True, errors="coerce"
+    )
+    df["_venc_dt"] = pd.to_datetime(
+        df["Data Vencimento"], dayfirst=True, errors="coerce"
     )
     _cache["csv"] = (df, now)
     return df
@@ -110,6 +114,7 @@ class TesouroAdapter:
         # If the query doesn't identify a product yet (user typed "tes"),
         # return one representative row per product so they can drill in.
         df_sorted = df.sort_values(by="_data_base_dt", ascending=False)
+        today = datetime.now().date()
         seen: set[tuple[str, bool, str]] = set()
         results: list[Candidate] = []
 
@@ -121,6 +126,12 @@ class TesouroAdapter:
             if q_product is not None and title_product != q_product:
                 continue
 
+            # Skip matured/delisted titles (the CSV keeps full history) — only
+            # offer what the user can still buy.
+            venc_dt = row.get("_venc_dt")
+            if pd.notna(venc_dt) and venc_dt.date() < today:
+                continue
+
             semestrais = _is_semestrais(title_raw)
             maturity = str(row.get("Data Vencimento", ""))
             year = maturity.split("/")[-1] if maturity else ""
@@ -129,7 +140,7 @@ class TesouroAdapter:
                 continue
             seen.add(key)
 
-            price = row.get("PU Compra Manha")
+            price = row.get("PU Venda Manha")
             price_float: float | None = (
                 float(price) if price is not None and not pd.isna(price) else None
             )
@@ -189,7 +200,7 @@ class TesouroAdapter:
                 candidate_years.add(year)
 
             if (not year) or (year in needle):
-                price = row.get("PU Compra Manha")
+                price = row.get("PU Venda Manha")
                 if price is not None and not pd.isna(price):
                     return PriceQuote.now(
                         external_id=external_id, price_brl=float(price)

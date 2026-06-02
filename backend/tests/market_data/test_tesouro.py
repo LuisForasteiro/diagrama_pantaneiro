@@ -22,22 +22,24 @@ def _fixture_csv_text() -> str:
 
 @respx.mock
 async def test_matches_renda_plus_2065() -> None:
+    """Valuation uses PU Venda (redemption), matching the official platform.
+    16/04 PU Venda = 2130 (not Compra 2136)."""
     respx.get(_CSV_URL).mock(
         return_value=Response(200, text=_fixture_csv_text())
     )
     quote = await TesouroAdapter().fetch_price("TESOURO RENDA + 2065")
-    assert quote.price_brl == pytest.approx(2136.00)
+    assert quote.price_brl == pytest.approx(2130.00)
 
 
 @respx.mock
 async def test_picks_most_recent_row_for_same_title() -> None:
     """Fixture has two rows for the 2065 title: 16/04 and 15/04. We should
-    pick the newest (16/04 = R$2136, not 15/04 = R$2134)."""
+    pick the newest (16/04 PU Venda = R$2130, not 15/04 = R$2128)."""
     respx.get(_CSV_URL).mock(
         return_value=Response(200, text=_fixture_csv_text())
     )
     quote = await TesouroAdapter().fetch_price("TESOURO RENDA + 2065")
-    assert quote.price_brl == pytest.approx(2136.00)
+    assert quote.price_brl == pytest.approx(2130.00)
 
 
 @respx.mock
@@ -49,7 +51,7 @@ async def test_matches_ipca_2035_picks_chronologically_newest() -> None:
         return_value=Response(200, text=_fixture_csv_text())
     )
     quote = await TesouroAdapter().fetch_price("TESOURO IPCA+ 2035")
-    assert quote.price_brl == pytest.approx(3500.00)
+    assert quote.price_brl == pytest.approx(3490.00)  # 01/06 PU Venda
 
 
 @respx.mock
@@ -68,7 +70,20 @@ async def test_semestrais_variant_is_distinct() -> None:
     assert semes, f"esperava um IPCA+ semestrais em {names}"
 
     quote = await TesouroAdapter().fetch_price(semes[0])
-    assert quote.price_brl == pytest.approx(3900.00)
+    assert quote.price_brl == pytest.approx(3890.00)  # PU Venda
+
+
+@respx.mock
+async def test_search_excludes_matured_titles() -> None:
+    """The CSV carries the full history, including delisted/matured titles.
+    Search must only list titles you can still buy (maturity in the future),
+    so the matured IPCA+ 2020 row must NOT appear."""
+    respx.get(_CSV_URL).mock(
+        return_value=Response(200, text=_fixture_csv_text())
+    )
+    names = [c.name for c in await TesouroAdapter().search("ipca")]
+    assert not any("2020" in n for n in names), names
+    assert any("2035" in n for n in names), names  # future ones still listed
 
 
 @respx.mock

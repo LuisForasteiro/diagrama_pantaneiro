@@ -1,7 +1,8 @@
-Tipo Titulo;Data Vencimento;Data Base;Taxa Compra Manha;PU Compra Manha
-Tesouro Renda+ Aposentadoria Extra;01/01/2065;16/04/2026;6,50;2136,00
-Tesouro Renda+ Aposentadoria Extra;01/01/2065;15/04/2026;6,48;2134,00
-Tesouro IPCA+;15/05/2035;16/04/2026;5,80;3200,00
-Tesouro IPCA+;15/05/2035;01/06/2026;5,70;3500,00
-Tesouro IPCA+ com Juros Semestrais;15/05/2035;01/06/2026;5,90;3900,00
-Tesouro Prefixado;01/01/2031;16/04/2026;11,30;650,00
+Tipo Titulo;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Manha;PU Compra Manha;PU Venda Manha;PU Base Manha
+Tesouro Renda+ Aposentadoria Extra;01/01/2065;16/04/2026;6,50;6,55;2136,00;2130,00;2133,00
+Tesouro Renda+ Aposentadoria Extra;01/01/2065;15/04/2026;6,48;6,53;2134,00;2128,00;2131,00
+Tesouro IPCA+;15/05/2035;16/04/2026;5,80;5,85;3200,00;3190,00;3195,00
+Tesouro IPCA+;15/05/2035;01/06/2026;5,70;5,75;3500,00;3490,00;3495,00
+Tesouro IPCA+ com Juros Semestrais;15/05/2035;01/06/2026;5,90;5,95;3900,00;3890,00;3895,00
+Tesouro Prefixado;01/01/2031;16/04/2026;11,30;11,35;650,00;648,00;649,00
+Tesouro IPCA+;15/05/2020;16/04/2026;5,80;5,85;1000,00;999,00;999,50
