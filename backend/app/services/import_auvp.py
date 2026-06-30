@@ -19,6 +19,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.diagram_question import DiagramQuestion
@@ -70,8 +71,22 @@ async def import_auvp_user_doc(
             )
         )
 
-    # Diagram questions
+    # Diagram questions. Dedup by external_id: the default banks (seeded by the
+    # runtime hook in api/positions.py) reuse these same AUVP `_id`s, so a fixture
+    # import after the backfill must not re-insert them.
+    existing_ext_ids = {
+        row[0]
+        for row in (
+            await session.execute(
+                select(DiagramQuestion.external_id).where(
+                    DiagramQuestion.user_id == user_id
+                )
+            )
+        ).all()
+    }
     for i, q in enumerate(doc.get("diagramQuestions", [])):
+        if q["_id"] in existing_ext_ids:
+            continue
         session.add(
             DiagramQuestion(
                 user_id=user_id,

@@ -17,10 +17,7 @@ from app.models.portfolio import Portfolio
 from app.models.position import Position
 from app.models.user import User
 from app.schemas.position import PositionCreate, PositionOut, PositionUpdate
-from app.services.default_diagram_questions import (
-    ETF_DIAGRAM_TYPE,
-    ETF_QUESTIONS,
-)
+from app.services.default_diagram_questions import DEFAULT_QUESTION_BANKS
 from app.services.import_auvp import import_auvp_user_doc
 from app.services.strength import DIAGRAM_FOR_CLASS
 
@@ -48,6 +45,7 @@ def _to_out(p: Position) -> PositionOut:
         category_id=p.category_id,
         strength=p.strength,
         diagram_responses=p.diagram_responses,
+        tradable=p.tradable,
         source=p.source,
     )
 
@@ -131,38 +129,42 @@ async def _compute_strength_if_diagram(
     return max(-n, min(n, 2 * yes - n))
 
 
-async def _ensure_etf_questions(session: AsyncSession, user_id: uuid.UUID) -> None:
-    """Backfill the default ETF diagram questions for a user (idempotent).
+async def _ensure_default_questions(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Backfill the default diagram questions for all three banks (idempotent).
 
-    Mirrors migration 0006. The migration runs once per user at upgrade
-    time; this hook covers users created AFTER the migration ran.
+    Covers cerrado (ações), imobiliários (FIIs/REITs) and ETFs. Previously only
+    the ETF bank was backfilled here; the other two relied on the AUVP fixture,
+    which the prod image does not ship, leaving self-host users without an
+    ações/imobiliários checklist. Dedup is by `external_id`, so re-runs and the
+    AUVP fixture import never produce duplicates.
     """
-    existing_ext_ids = {
-        row[0]
-        for row in (
-            await session.execute(
-                select(DiagramQuestion.external_id).where(
-                    DiagramQuestion.user_id == user_id,
-                    DiagramQuestion.diagram_type == ETF_DIAGRAM_TYPE,
+    added = False
+    for diagram_type, questions in DEFAULT_QUESTION_BANKS:
+        existing_ext_ids = {
+            row[0]
+            for row in (
+                await session.execute(
+                    select(DiagramQuestion.external_id).where(
+                        DiagramQuestion.user_id == user_id,
+                        DiagramQuestion.diagram_type == diagram_type,
+                    )
+                )
+            ).all()
+        }
+        for q in questions:
+            if q["external_id"] in existing_ext_ids:
+                continue
+            session.add(
+                DiagramQuestion(
+                    user_id=user_id,
+                    diagram_type=diagram_type,
+                    criterias=q["criterias"],
+                    question_text=q["question_text"],
+                    display_order=q["display_order"],
+                    external_id=q["external_id"],
                 )
             )
-        ).all()
-    }
-    added = False
-    for q in ETF_QUESTIONS:
-        if q["external_id"] in existing_ext_ids:
-            continue
-        session.add(
-            DiagramQuestion(
-                user_id=user_id,
-                diagram_type=ETF_DIAGRAM_TYPE,
-                criterias=q["criterias"],
-                question_text=q["question_text"],
-                display_order=q["display_order"],
-                external_id=q["external_id"],
-            )
-        )
-        added = True
+            added = True
     if added:
         await session.commit()
 
@@ -170,9 +172,9 @@ async def _ensure_etf_questions(session: AsyncSession, user_id: uuid.UUID) -> No
 async def _seed_if_empty(
     session: AsyncSession, user_id: uuid.UUID, portfolio_id: uuid.UUID
 ) -> None:
-    # Always ensure default ETF questions exist for this user — cheap, idempotent,
-    # covers users created after migration 0006 ran.
-    await _ensure_etf_questions(session, user_id)
+    # Always ensure the default question banks exist for this user — cheap,
+    # idempotent, and (unlike the AUVP fixture) present in the prod image.
+    await _ensure_default_questions(session, user_id)
 
     # Only auto-import the AUVP fixture for a brand-new user (no positions
     # anywhere yet). Creating a second portfolio must NOT re-seed — the user
@@ -214,8 +216,14 @@ async def create_position(
     portfolio: Portfolio = Depends(get_active_portfolio),
     session: AsyncSession = Depends(get_async_session),
 ) -> PositionOut:
+    # Strength derives from the *effective* class's diagram, not the raw
+    # asset_type. An asset overridden to a manual-strength class (e.g. a
+    # Bitcoin ETF wrapper reclassified as criptomoedas) has no diagram, so its
+    # strength stays manual instead of being computed to a negative value.
+    # Mirrors portfolio_loader's `effective_class or asset_type` rule.
+    effective_type = body.effective_class or body.asset_type
     strength = await _compute_strength_if_diagram(
-        session, user.id, body.asset_type, body.diagram_responses, body.strength
+        session, user.id, effective_type, body.diagram_responses, body.strength
     )
     await _validate_leaf_category(session, portfolio.id, body.category_id)
     pos = Position(
@@ -228,6 +236,7 @@ async def create_position(
         current_price=body.current_price,
         strength=strength,
         diagram_responses=body.diagram_responses,
+        tradable=body.tradable,
         source="user",
         category_id=body.category_id,
     )
@@ -261,15 +270,20 @@ async def update_position(
     for k, v in updates.items():
         setattr(pos, k, v)
 
-    # If diagram_responses changed AND this asset has a diagram, re-derive strength.
-    # Explicit strength in the same PATCH body still wins (we check exclude_unset).
+    # If diagram_responses changed AND this asset's *effective* class has a
+    # diagram, re-derive strength. Using effective_class (not asset_type) means
+    # an override to a manual-strength class (crypto/RF) keeps its manual
+    # strength instead of being recomputed negative from the underlying
+    # asset_type's diagram. Explicit strength in the same PATCH body still wins
+    # (we check exclude_unset).
+    effective_type = pos.effective_class or pos.asset_type
     if (
         "diagram_responses" in updates
         and "strength" not in updates
-        and _diagram_for(pos.asset_type) is not None
+        and _diagram_for(effective_type) is not None
     ):
         pos.strength = await _compute_strength_if_diagram(
-            session, user.id, pos.asset_type, pos.diagram_responses, pos.strength
+            session, user.id, effective_type, pos.diagram_responses, pos.strength
         )
 
     await session.commit()

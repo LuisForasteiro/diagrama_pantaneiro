@@ -92,6 +92,7 @@ async def load_portfolio(
                 strength=p.strength,
                 current_price=p.current_price,
                 diagram_responses=p.diagram_responses,
+                tradable=p.tradable,
                 group_key=(str(p.category_id) if p.category_id is not None else None),
             )
             for p in pos_rows
@@ -106,6 +107,7 @@ async def load_portfolio(
                 strength=p.strength,
                 current_price=p.current_price,
                 diagram_responses=p.diagram_responses,
+                tradable=p.tradable,
             )
             for p in pos_rows
         ]

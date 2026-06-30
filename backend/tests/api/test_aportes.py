@@ -280,3 +280,91 @@ async def test_delete_allocation_not_found(client: AsyncClient) -> None:
         headers=headers,
     )
     assert r.status_code == 404
+
+
+def _priced_non_rf_alloc(event: dict) -> dict:
+    """An allocation whose position is priced and unit-based (so amount += qty)."""
+    return next(
+        a
+        for a in event["allocations"]
+        if a["suggestedQuantity"] > 0
+        and (a["priceAtAporteBrl"] or 0) > 0
+        and a["assetTypeSnapshot"] not in ("rendafixa", "rendafixa_internacional")
+    )
+
+
+async def test_apply_allocation_honors_quantity_override(client: AsyncClient) -> None:
+    """A1: applying with an explicit appliedQuantity increments the position by
+    that quantity (the user's last-mile edit), not by the suggested amount."""
+    token = await _register_login_seed(client, "apov@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await client.post("/api/aportes", json={"value": 500}, headers=headers)
+    event = created.json()
+    alloc = _priced_non_rf_alloc(event)
+    pid = alloc["positionId"]
+
+    positions = (await client.get("/api/positions", headers=headers)).json()
+    before = next(p for p in positions if p["id"] == pid)["amount"]
+
+    r = await client.post(
+        f"/api/aportes/{event['id']}/allocations/{alloc['id']}/apply",
+        json={"appliedQuantity": 3, "appliedValueBrl": 99},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["appliedQuantity"] == 3
+    assert body["appliedValueBrl"] == 99
+
+    positions2 = (await client.get("/api/positions", headers=headers)).json()
+    after = next(p for p in positions2 if p["id"] == pid)["amount"]
+    assert after == before + 3  # incremented by the override, not the suggestion
+
+
+async def test_recompute_reflects_price_change(client: AsyncClient) -> None:
+    """A2: correcting a position's price then recomputing yields suggestions
+    priced at the new PU, while keeping the same set of titles."""
+    token = await _register_login_seed(client, "recomp@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await client.post("/api/aportes", json={"value": 1000}, headers=headers)
+    event = created.json()
+    alloc = _priced_non_rf_alloc(event)
+    pid = alloc["positionId"]
+    new_price = round(alloc["priceAtAporteBrl"] / 2, 2)
+
+    pr = await client.patch(
+        f"/api/positions/{pid}", json={"currentPrice": new_price}, headers=headers
+    )
+    assert pr.status_code == 200
+
+    rc = await client.post(f"/api/aportes/{event['id']}/recompute", headers=headers)
+    assert rc.status_code == 200
+    new_event = rc.json()
+    new_alloc = next(
+        (a for a in new_event["allocations"] if a["positionId"] == pid), None
+    )
+    assert new_alloc is not None, "title dropped out of the recompute"
+    assert new_alloc["priceAtAporteBrl"] == new_price
+
+
+async def test_recompute_blocked_when_any_applied(client: AsyncClient) -> None:
+    token = await _register_login_seed(client, "recompblk@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await client.post("/api/aportes", json={"value": 500}, headers=headers)
+    event = created.json()
+    a0 = event["allocations"][0]
+    await client.post(
+        f"/api/aportes/{event['id']}/allocations/{a0['id']}/apply",
+        json={},
+        headers=headers,
+    )
+    rc = await client.post(f"/api/aportes/{event['id']}/recompute", headers=headers)
+    assert rc.status_code == 409
+
+
+async def test_recompute_not_found(client: AsyncClient) -> None:
+    token = await _register_login_seed(client, "recomp404@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    fake = "00000000-0000-0000-0000-000000000000"
+    r = await client.post(f"/api/aportes/{fake}/recompute", headers=headers)
+    assert r.status_code == 404

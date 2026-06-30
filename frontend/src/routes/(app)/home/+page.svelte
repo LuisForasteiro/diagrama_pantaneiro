@@ -393,6 +393,7 @@
         <button type="button" class="btn" aria-label="mais ações" onclick={() => (showMoreMenu = !showMoreMenu)}>› ···</button>
         {#if showMoreMenu}
           <div class="more-menu">
+            <a class="more-item" href="/portfolios">carteiras</a>
             <a class="more-item" href="/diagram">diagrama</a>
             <a class="more-item" href="/history">histórico</a>
             <button class="more-item" type="button" onclick={handleLogout}>sair</button>
@@ -728,6 +729,9 @@
                 <span class="ink-dim">{CLASS_LABELS[cls] ?? cls}</span>
                 {#if p.effectiveClass}
                   <span class="override-tag" title="Classe original: {CLASS_LABELS[p.assetType] ?? p.assetType}">[override]</span>
+                {/if}
+                {#if !p.tradable}
+                  <span class="notsold-tag" title="Fora de venda — não entra nas sugestões de aporte (mas continua no patrimônio)">[fora de venda]</span>
                 {/if}
               </td>
               <td class="col-num tab-nums">
@@ -1236,6 +1240,13 @@
     margin-left: 6px;
     font-size: 10px;
     color: var(--ink-muted);
+    letter-spacing: 0.05em;
+    cursor: help;
+  }
+  .notsold-tag {
+    margin-left: 6px;
+    font-size: 10px;
+    color: var(--negative);
     letter-spacing: 0.05em;
     cursor: help;
   }

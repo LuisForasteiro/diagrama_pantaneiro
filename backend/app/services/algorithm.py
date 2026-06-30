@@ -52,6 +52,10 @@ MANUAL_STRENGTH_TYPES: set[ClassType] = {
 
 
 def _is_allocatable(a: Asset) -> bool:
+    # Non-buyable positions (e.g. a delisted Tesouro title) still count in
+    # portfolio_value via position_value(), but never receive a new aporte.
+    if not a.tradable:
+        return False
     if a.strength < 0:
         return False
     if a.type in MANUAL_STRENGTH_TYPES:

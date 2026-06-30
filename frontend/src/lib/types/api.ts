@@ -27,6 +27,7 @@ export interface PositionOut {
   categoryId: string | null;
   strength: number;
   diagramResponses: string[] | null;
+  tradable: boolean;
   source: string;
 }
 
@@ -66,6 +67,7 @@ export interface PositionCreate {
   currentPrice?: number | null;
   strength: number;
   diagramResponses?: string[] | null;
+  tradable?: boolean;
 }
 
 export interface PositionUpdate {
@@ -75,6 +77,7 @@ export interface PositionUpdate {
   diagramResponses?: string[] | null;
   effectiveClass?: string | null;
   categoryId?: string | null;
+  tradable?: boolean;
 }
 
 export interface DiagramQuestionOut {

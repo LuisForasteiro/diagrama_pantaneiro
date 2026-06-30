@@ -43,3 +43,8 @@ class AporteEventOut(BaseModel):
 class ApplyRequest(BaseModel):
     applied_value_brl: float | None = None
     applied_quantity: float | None = None
+
+    # The frontend sends camelCase (appliedValueBrl / appliedQuantity). Without
+    # this alias the keys silently miss the snake_case fields and the user's
+    # last-mile qty/value edit is dropped — apply falls back to the suggestion.
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)

@@ -35,6 +35,7 @@
   let strengthInput = $state("");
   let diagramResponses = $state<string[]>([]);
   let effectiveClassInput = $state<string>(EFFECTIVE_NONE);
+  let tradableInput = $state(true);
   let submitting = $state(false);
   let deleting = $state(false);
   let error = $state<string | null>(null);
@@ -53,6 +54,7 @@
       strengthInput = String(p.strength);
       diagramResponses = p.diagramResponses ?? [];
       effectiveClassInput = p.effectiveClass ?? EFFECTIVE_NONE;
+      tradableInput = p.tradable;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
@@ -95,11 +97,13 @@
         strength?: number;
         diagramResponses?: string[] | null;
         effectiveClass?: string | null;
+        tradable?: boolean;
       } = {
         amount: Number(amountInput),
         currentPrice,
         effectiveClass:
           effectiveClassInput === EFFECTIVE_NONE ? null : effectiveClassInput,
+        tradable: tradableInput,
       };
       if (hasDiagram) {
         body.diagramResponses = diagramResponses;
@@ -172,6 +176,18 @@
               <option value={c.v}>{c.l}</option>
             {/each}
           </select>
+        </label>
+
+        <label class="pant-check">
+          <input type="checkbox" bind:checked={tradableInput} />
+          <span class="pant-check-body">
+            <span class="pant-label-text">Ainda à venda (recebe aportes)</span>
+            <span class="pant-label-hint">
+              desmarque para títulos que não estão mais à venda (ex.: um Tesouro
+              que saiu de negociação). Continua no patrimônio, mas some das
+              sugestões de aporte.
+            </span>
+          </span>
         </label>
 
         <label class="pant-label">
@@ -262,6 +278,15 @@
   }
   .info-name { color: var(--ink); font-weight: 700; }
   .diagram-wrap { margin-bottom: 14px; }
+  .pant-check {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    cursor: pointer;
+  }
+  .pant-check input { margin-top: 3px; flex-shrink: 0; }
+  .pant-check-body { display: flex; flex-direction: column; gap: 2px; }
   .actions-row {
     display: flex;
     justify-content: space-between;

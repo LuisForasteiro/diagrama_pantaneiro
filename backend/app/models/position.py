@@ -4,7 +4,17 @@ import uuid
 from datetime import datetime
 
 from fastapi_users_db_sqlalchemy.generics import GUID
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    func,
+    true,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -36,6 +46,12 @@ class Position(Base):
     )
     strength: Mapped[int] = mapped_column(Integer)
     diagram_responses: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    # False = no longer buyable (e.g. a delisted Tesouro title). The algorithm
+    # stops suggesting it for new aportes, but it still counts in portfolio
+    # totals because the user keeps holding it.
+    tradable: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=true(), default=True
+    )
     source: Mapped[str] = mapped_column(String(16), default="auvp_import")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -50,6 +50,9 @@ class Asset(BaseModel):
     strength: int
     current_price: float | None = None
     diagram_responses: list[str] | None = None
+    # False -> still held (counts in totals) but no longer buyable, so the
+    # algorithm never suggests it for a new aporte. Defaults True.
+    tradable: bool = True
     # Allocation grouping key. None -> the algorithm groups by `type` (flat
     # 9-class mode). Set to a category leaf id -> hierarchical category mode.
     group_key: str | None = None

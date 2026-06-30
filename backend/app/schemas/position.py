@@ -29,6 +29,7 @@ class PositionOut(BaseModel):
     category_id: uuid.UUID | None = None
     strength: int
     diagram_responses: list[str] | None = None
+    tradable: bool = True
     source: str
 
     model_config = ConfigDict(
@@ -47,6 +48,7 @@ class PositionCreate(BaseModel):
     current_price: float | None = None
     strength: int
     diagram_responses: list[str] | None = None
+    tradable: bool = True
 
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
@@ -63,6 +65,7 @@ class PositionUpdate(BaseModel):
     diagram_responses: list[str] | None = None
     effective_class: str | None = None
     category_id: uuid.UUID | None = None
+    tradable: bool | None = None
 
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 

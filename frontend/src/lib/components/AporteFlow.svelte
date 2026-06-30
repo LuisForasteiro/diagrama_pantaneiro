@@ -4,8 +4,9 @@
     applyAllocation,
     createAporte,
     deleteAllocation,
+    recomputeAporte,
   } from "$lib/api/aportes";
-  import { listPositions } from "$lib/api/positions";
+  import { listPositions, updatePosition } from "$lib/api/positions";
   import { CLASS_LABELS, CLASS_ORDER } from "$lib/classLabels";
   import { privacyStore } from "$lib/stores/privacy";
   import { formatBrl, formatQty } from "$lib/format";
@@ -46,7 +47,18 @@
   let calculating = $state(false);
   let applyingId = $state<string | null>(null);
   let removingId = $state<string | null>(null);
+  let markingId = $state<string | null>(null);
+  let pricingId = $state<string | null>(null);
   let error = $state<string | null>(null);
+
+  // Per-allocation last-mile edits applied at "$ aportar" time (A1). Keyed by
+  // allocation id; absent -> use the suggested value. Stored as the raw string
+  // the user typed (so "1." mid-typing isn't clobbered) and parsed on apply.
+  // Reset whenever the event is recomputed (allocation ids change).
+  let qtyEdits = $state<Record<string, string>>({}); // priced rows: quantity
+  let valEdits = $state<Record<string, string>>({}); // unpriced-RF rows: BRL
+
+  const RF_SET = new Set(["rendafixa", "rendafixa_internacional"]);
 
   onMount(async () => {
     try {
@@ -71,6 +83,8 @@
     calculating = true;
     try {
       event = await createAporte(value);
+      qtyEdits = {};
+      valEdits = {};
       positions = await listPositions();
       onChanged?.();
     } catch (err) {
@@ -80,16 +94,44 @@
     }
   }
 
-  async function handleAportar(allocationId: string) {
+  // ── last-mile edit helpers (A1: applied qty/value · A2: price) ──
+  function isUnpricedRF(r: EnrichedRow): boolean {
+    return RF_SET.has(r.assetType) && r.priceAtAporteBrl == null;
+  }
+  function qtyStr(r: EnrichedRow): string {
+    return qtyEdits[r.id] ?? String(r.suggestedQuantity);
+  }
+  function valStr(r: EnrichedRow): string {
+    return valEdits[r.id] ?? String(r.suggestedValueBrl);
+  }
+  function parseEdit(raw: string, fallback: number): number {
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  }
+  /** The value/quantity actually sent to the apply endpoint for this row. */
+  function appliedBodyFor(
+    r: EnrichedRow,
+  ): { appliedQuantity?: number; appliedValueBrl?: number } {
+    if (isUnpricedRF(r)) {
+      return { appliedValueBrl: parseEdit(valStr(r), r.suggestedValueBrl) };
+    }
+    const qty = parseEdit(qtyStr(r), r.suggestedQuantity);
+    if (r.priceAtAporteBrl != null) {
+      return { appliedQuantity: qty, appliedValueBrl: qty * r.priceAtAporteBrl };
+    }
+    return { appliedQuantity: qty };
+  }
+
+  async function handleAportar(r: EnrichedRow) {
     if (!event) return;
-    applyingId = allocationId;
+    applyingId = r.id;
     error = null;
     try {
-      const updated = await applyAllocation(event.id, allocationId);
+      const updated = await applyAllocation(event.id, r.id, appliedBodyFor(r));
       event = {
         ...event,
         allocations: event.allocations.map((a) =>
-          a.id === allocationId ? { ...a, ...updated } : a,
+          a.id === r.id ? { ...a, ...updated } : a,
         ),
       };
       positions = await listPositions();
@@ -98,6 +140,35 @@
       error = err instanceof Error ? err.message : String(err);
     } finally {
       applyingId = null;
+    }
+  }
+
+  // A2: correct a position's price inline, then recompute the event so every
+  // suggestion reflects the new PU. The price change is global (it edits the
+  // position), which is intended — a wrong Tesouro PU was wrong everywhere.
+  async function handlePriceEdit(r: EnrichedRow, raw: string) {
+    if (!event || !r.positionId) return;
+    const newPrice = Number(raw);
+    if (!Number.isFinite(newPrice) || newPrice <= 0) return;
+    if (
+      r.priceAtAporteBrl != null &&
+      Math.abs(newPrice - r.priceAtAporteBrl) < 1e-9
+    ) {
+      return; // unchanged — nothing to do
+    }
+    pricingId = r.id;
+    error = null;
+    try {
+      await updatePosition(r.positionId, { currentPrice: newPrice });
+      event = await recomputeAporte(event.id);
+      qtyEdits = {};
+      valEdits = {};
+      positions = await listPositions();
+      onChanged?.();
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    } finally {
+      pricingId = null;
     }
   }
 
@@ -114,11 +185,49 @@
     error = null;
     try {
       event = await deleteAllocation(event.id, allocationId);
+      qtyEdits = {};
+      valEdits = {};
       onChanged?.();
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
     } finally {
       removingId = null;
+    }
+  }
+
+  // Permanently flag a position as no longer buyable (e.g. a Tesouro title
+  // pulled from sale), then drop+redistribute it within this event. Unlike the
+  // × remove (which only excludes for this one aporte), tradable=false sticks:
+  // future aportes won't suggest it either.
+  async function handleMarkNotSold(
+    allocationId: string,
+    positionId: string | null,
+    label: string,
+  ) {
+    if (!event || !positionId) return;
+    if (
+      !confirm(
+        `Marcar "${label}" como fora de venda? Ele continua na carteira, mas ` +
+          `deixa de aparecer nas sugestões de aporte (agora e nos próximos).`,
+      )
+    ) {
+      return;
+    }
+    markingId = allocationId;
+    error = null;
+    try {
+      await updatePosition(positionId, { tradable: false });
+      // Recompute this event so the value is redistributed right away. The
+      // position is now non-tradable, so it won't come back as a suggestion.
+      event = await deleteAllocation(event.id, allocationId);
+      qtyEdits = {};
+      valEdits = {};
+      positions = await listPositions();
+      onChanged?.();
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    } finally {
+      markingId = null;
     }
   }
 
@@ -295,7 +404,7 @@
     </div>
   </Panel>
 
-  <Panel title="── sugestões [{rows.length}] ──" sub="× exclui e redistribui" delay={360}>
+  <Panel title="── sugestões [{rows.length}] ──" sub="edite preço/qtd · ⊘ fora de venda · × exclui" delay={360}>
     <table class="pant-grid sugg-grid">
       <thead>
         <tr>
@@ -327,7 +436,21 @@
               {r.currentValueBrl !== null ? fmtBRL(r.currentValueBrl) : "—"}
             </td>
             <td class="pant-col-num pant-tab-nums ink-dim">
-              {r.priceAtAporteBrl !== null ? fmtBRL(r.priceAtAporteBrl) : "—"}
+              {#if !r.applied && r.positionId && r.priceAtAporteBrl !== null && !masked}
+                <input
+                  class="cell-input"
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={r.priceAtAporteBrl}
+                  disabled={pricingId !== null || applyingId !== null || removingId !== null || markingId !== null}
+                  onchange={(e) => handlePriceEdit(r, e.currentTarget.value)}
+                  title="Corrigir o preço (PU) e recalcular o aporte"
+                />
+                {#if pricingId === r.id}<span class="cell-spin">…</span>{/if}
+              {:else}
+                {r.priceAtAporteBrl !== null ? fmtBRL(r.priceAtAporteBrl) : "—"}
+              {/if}
             </td>
             <td class="pant-col-num pant-tab-nums">
               {#if r.strength !== null}
@@ -341,15 +464,49 @@
             <td class="pant-col-num pant-tab-nums ink-dim">
               {r.totalAfterPct !== null ? `${r.totalAfterPct.toFixed(2)}%` : "—"}
             </td>
-            <td class="pant-col-num pant-tab-nums pant-val">{fmtBRL(r.suggestedValueBrl)}</td>
-            <td class="pant-col-num pant-tab-nums">{fmtQty(r.suggestedQuantity, 4)}</td>
+            <td class="pant-col-num pant-tab-nums pant-val">
+              {#if !r.applied && isUnpricedRF(r) && !masked}
+                <input
+                  class="cell-input"
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={valStr(r)}
+                  disabled={pricingId !== null || applyingId !== null || removingId !== null || markingId !== null}
+                  oninput={(e) => (valEdits = { ...valEdits, [r.id]: e.currentTarget.value })}
+                  title="Editar o valor (R$) que será aportado"
+                />
+              {:else}
+                {fmtBRL(r.suggestedValueBrl)}
+              {/if}
+            </td>
+            <td class="pant-col-num pant-tab-nums">
+              {#if r.applied}
+                {fmtQty(r.suggestedQuantity, 4)}
+              {:else if isUnpricedRF(r)}
+                <span class="ink-muted">—</span>
+              {:else if !masked}
+                <input
+                  class="cell-input"
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={qtyStr(r)}
+                  disabled={pricingId !== null || applyingId !== null || removingId !== null || markingId !== null}
+                  oninput={(e) => (qtyEdits = { ...qtyEdits, [r.id]: e.currentTarget.value })}
+                  title="Editar a quantidade que será aportada"
+                />
+              {:else}
+                {fmtQty(r.suggestedQuantity, 4)}
+              {/if}
+            </td>
             <td class="pant-col-num">
               {#if r.applied}
                 <span class="applied-tag">✓ aplicado</span>
               {:else}
                 <button
-                  onclick={() => handleAportar(r.id)}
-                  disabled={applyingId !== null || removingId !== null}
+                  onclick={() => handleAportar(r)}
+                  disabled={applyingId !== null || removingId !== null || markingId !== null || pricingId !== null}
                   class="pant-btn pant-btn-accent"
                 >
                   {applyingId === r.id ? "…" : "$ aportar"}
@@ -358,15 +515,28 @@
             </td>
             <td class="col-rm">
               {#if !r.applied}
-                <button
-                  type="button"
-                  onclick={() => handleRemove(r.id, r.name)}
-                  disabled={removingId !== null || applyingId !== null}
-                  title="Excluir esta sugestão e recalcular as restantes"
-                  class="remove-btn"
-                >
-                  {removingId === r.id ? "…" : "×"}
-                </button>
+                <div class="row-actions">
+                  {#if r.positionId}
+                    <button
+                      type="button"
+                      onclick={() => handleMarkNotSold(r.id, r.positionId, r.name)}
+                      disabled={removingId !== null || applyingId !== null || markingId !== null || pricingId !== null}
+                      title="Marcar como fora de venda — some das sugestões agora e nos próximos aportes"
+                      class="notsold-btn"
+                    >
+                      {markingId === r.id ? "…" : "⊘"}
+                    </button>
+                  {/if}
+                  <button
+                    type="button"
+                    onclick={() => handleRemove(r.id, r.name)}
+                    disabled={removingId !== null || applyingId !== null || markingId !== null || pricingId !== null}
+                    title="Excluir só deste aporte e recalcular as restantes"
+                    class="remove-btn"
+                  >
+                    {removingId === r.id ? "…" : "×"}
+                  </button>
+                </div>
               {/if}
             </td>
           </tr>
@@ -448,7 +618,27 @@
 
   .sugg-grid .col-tipo { width: 16%; }
   .sugg-grid .col-name { width: 12%; word-break: break-word; }
-  .sugg-grid .col-rm { width: 32px; }
+  .sugg-grid .col-rm { width: 56px; }
+  .row-actions { display: flex; gap: 2px; justify-content: flex-end; align-items: center; }
+  .cell-input {
+    width: 72px;
+    max-width: 100%;
+    text-align: right;
+    font: inherit;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--hairline);
+    border-radius: 2px;
+    padding: 2px 4px;
+  }
+  .cell-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .cell-input:disabled { opacity: 0.4; cursor: not-allowed; }
+  .cell-spin { margin-left: 4px; color: var(--accent); }
   .sugg-grid tbody tr.applied td { opacity: 0.5; }
   .class-chip {
     display: inline-block;
@@ -479,6 +669,19 @@
   }
   .remove-btn:hover:not(:disabled) { color: var(--negative); }
   .remove-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .notsold-btn {
+    background: transparent;
+    border: none;
+    color: var(--ink-muted);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 4px;
+    line-height: 1;
+    transition: color 120ms;
+  }
+  .notsold-btn:hover:not(:disabled) { color: var(--accent); }
+  .notsold-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
   @media (max-width: 720px) {
     .distrib { grid-template-columns: 1fr; }

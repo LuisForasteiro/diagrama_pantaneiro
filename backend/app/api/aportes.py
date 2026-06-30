@@ -48,6 +48,28 @@ async def _get_portfolio_event(
     return event
 
 
+async def _sticky_excluded(
+    session: AsyncSession, portfolio_id: uuid.UUID, event: AporteEvent
+) -> set[uuid.UUID]:
+    """Positions to keep OUT of a recompute: everything in the portfolio that
+    isn't currently part of this event's allocations. Preserves the user's
+    manual exclusions (suggestions they removed, non-tradable titles) across a
+    recompute. Positions that were never allocatable are also in this set, but
+    excluding them is a no-op for the algorithm."""
+    portfolio_position_ids = {
+        row[0]
+        for row in (
+            await session.execute(
+                select(Position.id).where(Position.portfolio_id == portfolio_id)
+            )
+        ).all()
+    }
+    currently_allocated = {
+        a.position_id for a in event.allocations if a.position_id is not None
+    }
+    return portfolio_position_ids - currently_allocated
+
+
 @router.post("", response_model=AporteEventOut, status_code=status.HTTP_201_CREATED)
 async def create_aporte(
     body: AporteCreate,
@@ -157,26 +179,40 @@ async def delete_allocation(
         )
 
     # Sticky exclusion: keep previously-deleted positions out across
-    # consecutive deletes. We don't store a separate ledger — instead we
-    # derive the set as `(all portfolio positions) − (currently allocated)`,
-    # then add the position the user is deleting now. Positions that were
-    # never allocatable (negative strength, no target) are also in this
-    # gap, but excluding them is a no-op for the algorithm.
-    portfolio_position_ids = {
-        row[0]
-        for row in (
-            await session.execute(
-                select(Position.id).where(Position.portfolio_id == portfolio.id)
-            )
-        ).all()
-    }
-    currently_allocated = {
-        a.position_id for a in event.allocations if a.position_id is not None
-    }
-    excluded = portfolio_position_ids - currently_allocated
+    # consecutive deletes, then add the one being deleted now.
+    excluded = await _sticky_excluded(session, portfolio.id, event)
     if alloc.position_id is not None:
         excluded.add(alloc.position_id)
 
+    try:
+        updated = await recompute_event_excluding(
+            session, event, user.id, excluded
+        )
+    except AporteHasAppliedError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="cannot edit aporte after applying",
+        )
+    await session.commit()
+    await session.refresh(updated, ["allocations"])
+    return AporteEventOut.model_validate(updated)
+
+
+@router.post("/{event_id}/recompute", response_model=AporteEventOut)
+async def recompute_aporte(
+    event_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    portfolio: Portfolio = Depends(get_active_portfolio),
+    session: AsyncSession = Depends(get_async_session),
+) -> AporteEventOut:
+    """Recompute the event's suggestions from current portfolio state, keeping
+    the same set of titles (manual exclusions preserved). Used after the user
+    corrects a position's price inline so every suggestion reflects the new PU.
+
+    Rejected with 409 if any allocation was already applied — same rule as
+    deleting a suggestion (partial-apply + edit is intentionally out of scope)."""
+    event = await _get_portfolio_event(session, event_id, portfolio.id)
+    excluded = await _sticky_excluded(session, portfolio.id, event)
     try:
         updated = await recompute_event_excluding(
             session, event, user.id, excluded

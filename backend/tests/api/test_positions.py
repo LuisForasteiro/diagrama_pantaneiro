@@ -280,6 +280,78 @@ async def test_patch_effective_class_sets_override(client: AsyncClient) -> None:
     assert body["effectiveClass"] == "criptomoedas"
 
 
+async def test_override_to_crypto_keeps_manual_strength(client: AsyncClient) -> None:
+    """Regression: a Bitcoin-ETF wrapper (e.g. OBTC3/QBTC11) overridden to
+    criptomoedas must keep its manual strength. Strength derivation follows the
+    *effective* class — crypto has no diagram — so a later PATCH carrying
+    diagram_responses must NOT recompute it to a negative value from the
+    underlying acoes_nacionais/etfs_nacionais diagram."""
+    token = await _register_and_login(client, "eff_crypto@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    await client.get("/api/positions", headers=headers)  # seed question banks
+
+    created = await client.post(
+        "/api/positions",
+        json={
+            "name": "OBTC3",
+            "assetType": "acoes_nacionais",
+            "effectiveClass": "criptomoedas",
+            "amount": 100,
+            "currentPrice": 6,
+            "strength": 8,
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201
+    assert created.json()["strength"] == 8  # not 2*0 - 11 from the cerrado bank
+    pid = created.json()["id"]
+
+    # Editing the position (here: adding quantity) while diagram_responses ride
+    # along must leave strength untouched, because the effective class is crypto.
+    r = await client.patch(
+        f"/api/positions/{pid}",
+        json={"amount": 150, "diagramResponses": []},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["strength"] == 8
+
+
+async def test_tradable_defaults_true_and_can_be_toggled(client: AsyncClient) -> None:
+    """New positions are buyable by default; PATCH tradable=false flags a title
+    as no longer for sale (it stays held but drops out of aporte suggestions)."""
+    token = await _register_and_login(client, "tradable@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    await client.get("/api/positions", headers=headers)  # seed
+
+    created = await client.post(
+        "/api/positions",
+        json={
+            "name": "Tesouro Prefixado 2031",
+            "assetType": "rendafixa",
+            "amount": 1000,
+            "currentPrice": 700,
+            "strength": 7,
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201
+    assert created.json()["tradable"] is True
+    pid = created.json()["id"]
+
+    r = await client.patch(
+        f"/api/positions/{pid}", json={"tradable": False}, headers=headers
+    )
+    assert r.status_code == 200
+    assert r.json()["tradable"] is False
+
+    # Re-enabling works (the undo path on the edit page).
+    r = await client.patch(
+        f"/api/positions/{pid}", json={"tradable": True}, headers=headers
+    )
+    assert r.json()["tradable"] is True
+
+
 async def test_patch_effective_class_can_be_cleared_with_null(
     client: AsyncClient,
 ) -> None:

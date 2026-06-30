@@ -9,7 +9,7 @@ from collections import defaultdict
 import pytest
 
 from app.services.algorithm import compute_suggestions
-from app.services.types import Portfolio
+from app.services.types import Asset, Portfolio
 
 from .conftest import load_expected, normalize_asset_type
 
@@ -144,3 +144,42 @@ class TestEdgeCases:
         # Residual should be small (stage-3 floor truncation only), not the full
         # phantom share (~R$200 at 20% of aporte).
         assert residual < 50, f"phantom class ate {residual:.2f} of aporte"
+
+
+class TestTradableFlag:
+    """A position flagged tradable=False (e.g. a Tesouro pulled from sale) must
+    drop out of suggestions but still count toward portfolio totals."""
+
+    def _mini(self, tradable: bool) -> Portfolio:
+        return Portfolio(
+            assets=[
+                Asset(
+                    id="keep", type="acoes_nacionais", name="KEEP3",
+                    amount=10, strength=5, current_price=10.0,
+                ),
+                Asset(
+                    id="delisted", type="acoes_nacionais", name="OLD3",
+                    amount=10, strength=5, current_price=10.0, tradable=tradable,
+                ),
+            ],
+            targets={"acoes_nacionais": 100.0},
+            questions=[],
+        )
+
+    def test_non_tradable_never_suggested(self) -> None:
+        out = compute_suggestions(self._mini(tradable=False), 1000)
+        ids = {s.asset_id for s in out}
+        assert "delisted" not in ids
+        assert "keep" in ids
+
+    def test_tradable_default_is_suggested(self) -> None:
+        out = compute_suggestions(self._mini(tradable=True), 1000)
+        assert {"keep", "delisted"} <= {s.asset_id for s in out}
+
+    def test_non_tradable_still_counts_in_portfolio_total(self) -> None:
+        # Both held assets = R$200; aporte R$1000 -> denominator R$1200. If the
+        # delisted asset were dropped from totals too, the lone suggestion would
+        # land at exactly 100%. It lands below, proving it's still counted.
+        out = compute_suggestions(self._mini(tradable=False), 1000)
+        keep = next(s for s in out if s.asset_id == "keep")
+        assert keep.total_after_suggestion_percentage < 100.0

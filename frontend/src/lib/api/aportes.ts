@@ -22,6 +22,11 @@ export const applyAllocation = (
     { method: "POST", body: JSON.stringify(body) },
   );
 
+export const recomputeAporte = (eventId: string) =>
+  apiRequest<AporteEventOut>(`/aportes/${eventId}/recompute`, {
+    method: "POST",
+  });
+
 export const deleteAporte = (eventId: string) =>
   apiRequest<void>(`/aportes/${eventId}`, { method: "DELETE" });
 

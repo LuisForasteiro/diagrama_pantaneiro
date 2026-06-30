@@ -32,15 +32,15 @@ async def test_list_diagram_questions_returns_seeded_banks(
     r = await client.get("/api/diagram-questions", headers=headers)
     assert r.status_code == 200
     questions = r.json()
-    # 11 cerrado + 6 imobiliarios + 7 etfs = 24
-    assert len(questions) == 24
+    # 11 cerrado + 12 imobiliarios + 11 etfs = 34
+    assert len(questions) == 34
 
     by_diagram: dict[str, list[dict]] = {}
     for q in questions:
         by_diagram.setdefault(q["diagramType"], []).append(q)
     assert len(by_diagram["diagrama-do-cerrado"]) == 11
-    assert len(by_diagram["investimentos-imobiliarios"]) == 6
-    assert len(by_diagram["diagrama-etfs"]) == 7
+    assert len(by_diagram["investimentos-imobiliarios"]) == 12
+    assert len(by_diagram["diagrama-etfs"]) == 11
 
 
 async def test_list_diagram_questions_filter_by_diagram(
@@ -55,7 +55,7 @@ async def test_list_diagram_questions_filter_by_diagram(
     )
     assert r.status_code == 200
     questions = r.json()
-    assert len(questions) == 6
+    assert len(questions) == 12
     for q in questions:
         assert q["diagramType"] == "investimentos-imobiliarios"
 

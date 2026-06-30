@@ -23,7 +23,11 @@ from app.services.strength import DIAGRAM_FOR_CLASS
 router = APIRouter(prefix="/api/diagram-questions", tags=["diagram-questions"])
 
 
-VALID_DIAGRAMS = {"diagrama-do-cerrado", "investimentos-imobiliarios"}
+VALID_DIAGRAMS = {
+    "diagrama-do-cerrado",
+    "investimentos-imobiliarios",
+    "diagrama-etfs",
+}
 
 
 async def _bank_size(
