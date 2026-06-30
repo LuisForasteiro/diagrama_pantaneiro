@@ -43,6 +43,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",  # Vite dev server
         "http://localhost:8080",  # nginx prod build
+        "http://localhost:8081",  # nginx prod build (alt port)
     ],
     allow_credentials=True,
     allow_methods=["*"],

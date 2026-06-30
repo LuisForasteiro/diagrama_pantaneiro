@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local data (SQLite db lives in a volume, not the image)
+data/
+*.db
+
+# Tooling / editor
+.claude/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

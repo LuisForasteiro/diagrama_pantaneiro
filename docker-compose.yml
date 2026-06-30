@@ -21,7 +21,7 @@ services:
     build: ./frontend
     image: diagrama-cerrado-frontend:latest
     ports:
-      - "8080:80"
+      - "8081:80"
     depends_on:
       backend:
         condition: service_healthy
