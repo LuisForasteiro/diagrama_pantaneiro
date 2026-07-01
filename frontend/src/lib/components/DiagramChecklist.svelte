@@ -90,21 +90,21 @@
 </script>
 
 {#if diagramType}
-  <div class="rounded border border-slate-200 bg-slate-50 p-4">
-    <div class="mb-3 flex items-center justify-between">
-      <h3 class="text-sm font-semibold">
+  <div class="dc-panel">
+    <div class="dc-head">
+      <h3 class="dc-title">
         Pontuação ({diagramType === "diagrama-do-cerrado"
           ? "Diagrama Pantaneiro"
           : diagramType === "investimentos-imobiliarios"
             ? "Investimentos Imobiliários"
             : "Diagrama de ETFs"})
       </h3>
-      <span class="text-sm tabular-nums">
-        <span class="text-slate-500">{yesCount}/{questions.length} sim ·</span>
+      <span class="dc-score pant-tab-nums">
+        <span class="ink-muted">{yesCount}/{questions.length} sim ·</span>
         <strong
-          class:text-emerald-700={computedStrength > 0}
-          class:text-red-700={computedStrength < 0}
-          class:text-slate-600={computedStrength === 0}
+          class:ink-pos={computedStrength > 0}
+          class:ink-neg={computedStrength < 0}
+          class:ink-muted={computedStrength === 0}
         >
           força {computedStrength > 0 ? "+" : ""}{computedStrength}
         </strong>
@@ -112,28 +112,28 @@
     </div>
 
     {#if loading}
-      <p class="text-sm text-slate-500">Carregando perguntas…</p>
+      <p class="dc-msg"><span class="pant-blink">█</span> carregando perguntas…</p>
     {:else if error}
-      <p class="text-sm text-red-700">Erro: {error}</p>
+      <p class="dc-msg ink-neg">Erro: {error}</p>
     {:else if questions.length === 0}
-      <p class="text-sm text-slate-500">Nenhuma pergunta cadastrada para este diagrama.</p>
+      <p class="dc-msg ink-muted">Nenhuma pergunta cadastrada para este diagrama.</p>
     {:else}
-      <ul class="space-y-2">
+      <ul class="dc-list">
         {#each questions as q (q.id)}
           {@const ticked = responses.includes(q.id)}
           <li>
-            <label class="flex cursor-pointer items-start gap-2 text-sm">
+            <label class="dc-item">
               <input
                 type="checkbox"
                 checked={ticked}
                 onchange={(e) =>
                   toggle(q.id, (e.currentTarget as HTMLInputElement).checked)}
-                class="mt-0.5"
+                class="dc-check"
               />
               <span>
-                {#if q.criterias}<strong>{q.criterias}</strong>{/if}
+                {#if q.criterias}<strong class="dc-crit">{q.criterias}</strong>{/if}
                 {#if q.questionText && q.questionText !== q.criterias}
-                  <span class="text-slate-600">
+                  <span class="ink-dim">
                     {q.criterias ? " — " : ""}{q.questionText}
                   </span>
                 {/if}
@@ -145,3 +145,53 @@
     {/if}
   </div>
 {/if}
+
+<style>
+  .dc-panel {
+    border: 1px solid var(--hairline);
+    background: var(--surface-raised);
+    padding: 14px 16px;
+  }
+  .dc-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .dc-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+  .dc-score { font-size: 12px; }
+  .dc-msg { font-size: 12px; margin: 0; color: var(--ink-dim); }
+  .dc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .dc-item {
+    display: flex;
+    cursor: pointer;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink-dim);
+  }
+  .dc-item:hover .dc-crit { color: var(--accent); }
+  .dc-check {
+    margin-top: 2px;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .dc-crit { color: var(--ink); }
+</style>

@@ -40,6 +40,56 @@ body {
 .tab-nums {
   font-variant-numeric: tabular-nums;
 }
+/* Alias used throughout markup (history, aporte flow, edit modals). Kept in
+ * sync with .tab-nums so those tabular-number columns actually align. */
+.pant-tab-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Themed scrollbars — keep the terminal look inside scroll regions
+ * (tables, dropdown menus, tall modals) instead of the OS default. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-muted); }
+
+/* Keyboard focus ring — visible on every interactive element for a11y.
+ * Uses :focus-visible so mouse clicks stay clean. More specific per-element
+ * rules (e.g. .sortable:focus-visible) still win. */
+a:focus-visible,
+button:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="button"]:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Checkboxes / radios adopt the sunset accent when checked. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+/* Respect the user's reduced-motion preference — kill the reveal / donut-draw
+ * / blink animations and long transitions for those who opt out. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* ─────────────────────────────────────────────────────────────
  * Global dark-theme overrides for Tailwind light utilities.
@@ -170,6 +220,7 @@ select option { background: var(--surface); color: var(--ink); }
   border-color: var(--accent-dim);
   background: #14201a;
 }
+.pant-btn:active:not(:disabled) { transform: translateY(1px); }
 .pant-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .pant-btn-accent {
   color: var(--bg);
