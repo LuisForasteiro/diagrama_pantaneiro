@@ -7,8 +7,8 @@ O nome é uma referência ao original — mesma metodologia, outro bioma. Reimpl
 ## Funcionalidades
 
 - **Múltiplas carteiras** por conta, com posições/alvos/histórico isolados (header `X-Portfolio-Id`).
-- **Sete classes de ativos:** ações nacionais/internacionais, FIIs, REITs, cripto, renda fixa BR/internacional.
-- **Pontuação por diagrama** (força = `2 × sim − N`) para ações/FIIs/REITs; força manual para cripto e RF.
+- **Nove classes de ativos:** ações nacionais/internacionais, ETFs nacionais/internacionais, FIIs, REITs, cripto, renda fixa BR/internacional.
+- **Pontuação por diagrama** (força = `2 × sim − N`) para ações/FIIs/REITs/ETFs; força manual para cripto e RF.
 - **Algoritmo de aporte em 3 estágios:** alocação entre classes → dentro da classe → quantização em unidades.
 - **Dados de mercado:** Yahoo Finance (ações/REITs), Brapi (autocomplete BR), CoinGecko (cripto), Tesouro Direto (RF pública), AwesomeAPI (USD-BRL).
 - **Extras:** autocomplete de tickers, histórico de aportes, presets de alvo, toggle de privacidade para screenshots.
@@ -18,13 +18,13 @@ O nome é uma referência ao original — mesma metodologia, outro bioma. Reimpl
 
 **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.x (async), SQLite + Alembic, Pydantic v2, httpx, yfinance.
 **Frontend:** SvelteKit 5 (runes), TypeScript, Tailwind, Vite.
-**Testes:** pytest (125+ testes) e Vitest.
+**Testes:** pytest (183 testes) e Vitest.
 **Deploy:** Docker Compose.
 
 ## Início rápido
 
 ```bash
-git clone https://github.com/LucasGazula/diagrama_pantaneiro.git
+git clone https://github.com/LuisForasteiro/diagrama_pantaneiro.git
 cd diagrama_pantaneiro
 cp .env.example .env
 # edite .env e defina um JWT_SECRET forte (32+ bytes):
@@ -33,7 +33,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-- Frontend: http://localhost:8080
+- Frontend: http://localhost:8081
 - API docs: http://localhost:8000/docs
 
 ## Desenvolvimento local
@@ -82,6 +82,14 @@ Projeto pessoal, self-host, recortes conscientes:
 - Renda fixa privada é manual (sem fonte pública de preço).
 - SQLite single-instance (migração para Postgres é direta pela stack async).
 
+## Créditos
+
+Projeto iniciado a partir do commit inicial de
+[LucasGazula](https://github.com/LucasGazula/diagrama_pantaneiro) e, a partir
+daí, desenvolvido e mantido por
+[Luis Forasteiro](https://github.com/LuisForasteiro). Metodologia inspirada no
+"Diagrama do Cerrado" da AUVP.
+
 ## Licença
 
-MIT
+MIT — ver [LICENSE](LICENSE).
