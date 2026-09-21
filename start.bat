@@ -24,8 +24,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [*] Subindo containers...
-docker compose up --build -d
+echo [*] Subindo containers (aguardando o backend ficar saudavel)...
+docker compose up --build -d --wait --wait-timeout 180
 
 if errorlevel 1 (
     echo [!] Falha ao subir os containers.
