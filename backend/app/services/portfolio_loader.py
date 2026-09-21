@@ -94,6 +94,7 @@ async def load_portfolio(
                 diagram_responses=p.diagram_responses,
                 tradable=p.tradable,
                 group_key=(str(p.category_id) if p.category_id is not None else None),
+                market_type=p.asset_type,  # type: ignore[arg-type]
             )
             for p in pos_rows
         ]
@@ -108,6 +109,7 @@ async def load_portfolio(
                 current_price=p.current_price,
                 diagram_responses=p.diagram_responses,
                 tradable=p.tradable,
+                market_type=p.asset_type,  # type: ignore[arg-type]
             )
             for p in pos_rows
         ]

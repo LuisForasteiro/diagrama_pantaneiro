@@ -56,6 +56,16 @@ class Asset(BaseModel):
     # Allocation grouping key. None -> the algorithm groups by `type` (flat
     # 9-class mode). Set to a category leaf id -> hierarchical category mode.
     group_key: str | None = None
+    # The position's REAL market venue (its unoverridden asset_type), used
+    # only to decide whole-vs-fractional quantization in stage 3 of the
+    # algorithm. `type` may be an `effective_class` override for allocation
+    # purposes (e.g. a B3 ETF filed under "etfs_internacionais" because its
+    # exposure is international) — B3 never allows fractional buys, so
+    # quantization must key off where the asset actually trades, not off
+    # the allocation class. None -> same as `type` (back-compat for callers
+    # that construct assets directly, e.g. test fixtures, where there is no
+    # override to track).
+    market_type: ClassType | None = None
 
 
 class Portfolio(BaseModel):

@@ -106,6 +106,52 @@ async def test_loader_emits_effective_class_when_set(
     assert obtc3.type == "criptomoedas"
 
 
+async def test_loader_preserves_real_market_type_under_effective_class_override(
+    session: AsyncSession,
+) -> None:
+    """A B3 ETF (IVVB11) filed under 'etfs_internacionais' via effective_class
+    (allocation-only override) must still be quantized as a whole-unit B3
+    asset end-to-end — loader + algorithm together, exercising the same path
+    create_aporte_event/recompute_event_excluding use."""
+    from app.models.position import Position
+    from app.services.algorithm import compute_suggestions
+    from app.services.types import Portfolio as DomainPortfolio
+
+    user_id = uuid.uuid4()
+    portfolio_row = PortfolioModel(
+        id=uuid.uuid4(), user_id=user_id, name="Principal", is_default=True
+    )
+    session.add(portfolio_row)
+    await session.flush()
+    session.add(
+        Position(
+            user_id=user_id,
+            portfolio_id=portfolio_row.id,
+            name="IVVB11",
+            asset_type="etfs_nacionais",
+            effective_class="etfs_internacionais",
+            amount=0,
+            current_price=350.0,
+            strength=5,
+            source="user",
+        )
+    )
+    await session.commit()
+
+    portfolio = await load_portfolio(session, user_id, portfolio_row.id)
+    ivvb11 = next(a for a in portfolio.assets if a.name == "IVVB11")
+    assert ivvb11.type == "etfs_internacionais"  # allocation override intact
+    assert ivvb11.market_type == "etfs_nacionais"  # real market venue preserved
+
+    suggestions = compute_suggestions(
+        DomainPortfolio(assets=[ivvb11], targets={"etfs_internacionais": 100.0}, questions=[]),
+        1000.0,
+    )
+    assert len(suggestions) == 1
+    qty = suggestions[0].suggestion_quantity
+    assert qty == int(qty)
+
+
 async def test_loader_category_mode_sets_group_keys_and_effective_targets(
     session_maker,
 ) -> None:

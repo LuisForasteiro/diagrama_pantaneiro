@@ -27,6 +27,7 @@ Stage 3 (quantization) and the residual absorber are unchanged.
 from __future__ import annotations
 
 import math
+import re
 
 from app.services.strength import DIAGRAM_FOR_CLASS, position_value
 from app.services.types import Asset, ClassType, Portfolio, Suggestion
@@ -40,6 +41,48 @@ FRACTIONAL_SHARE_TYPES: set[ClassType] = {
     "reits",
     "etfs_internacionais",
 }
+# Market venues that never allow fractional buys, independent of allocation
+# class. See `is_whole_unit` for why this must be checked against the
+# asset's real market venue (Asset.market_type) rather than Asset.type.
+WHOLE_UNIT_MARKET_TYPES: set[ClassType] = {
+    "acoes_nacionais",
+    "fundos_imobiliarios",
+    "etfs_nacionais",
+}
+
+# B3 ticker shape: 4 letters + 1-2 digits, optionally suffixed with the
+# yfinance ".SA" exchange code (market_data/registry.py::_br_stock_route).
+# Matches PETR4, HGLG11, IVVB11, WRLD11, and BDRs like AAPL34 — all of which
+# settle in whole units on B3 even though some carry international exposure.
+_B3_TICKER_RE = re.compile(r"^[A-Z]{4}\d{1,2}(\.SA)?$")
+
+
+def _looks_like_b3_ticker(name: str) -> bool:
+    return bool(_B3_TICKER_RE.match(name.strip().upper()))
+
+
+def is_whole_unit(market_type: ClassType, name: str) -> bool:
+    """Whether a position must be bought in whole units at its real market
+    venue (`market_type`, i.e. the position's unoverridden asset_type —
+    never the `effective_class` allocation override).
+
+    B3-native venues (BR stocks, FIIs, BR-domiciled ETFs) never allow
+    fractional buys. As a defensive fallback, a ticker that merely *looks*
+    like a B3 ticker is also treated as whole-unit even when classified
+    under an international allocation type — this covers B3 ETFs (e.g.
+    IVVB11, WRLD11) the user filed under "ETF Internacional" because their
+    underlying exposure is international, plus BDRs (AAPL34).
+    """
+    if market_type in WHOLE_UNIT_MARKET_TYPES:
+        return True
+    if market_type in FRACTIONAL_SHARE_TYPES:
+        return _looks_like_b3_ticker(name)
+    # Crypto and fixed income accept exact amounts at their real venue.
+    return False
+
+
+def _trades_whole(asset: Asset) -> bool:
+    return is_whole_unit(asset.market_type or asset.type, asset.name)
 
 # Classes whose strength is set manually by the user (no diagram). For these
 # the default of 0 means "not yet evaluated" rather than "excluded", so they
@@ -99,9 +142,13 @@ def _absorb_residual(
     if residual <= 0.01:
         return suggestions
 
+    by_id = {a.id: a for a in all_assets}
     idx_absorber = -1
     best_strength = -1
     for i, s in enumerate(suggestions):
+        asset = by_id.get(s.asset_id)
+        if asset is not None and _trades_whole(asset):
+            continue  # a B3 asset under the crypto class can't take a fraction
         if s.asset_type == "criptomoedas" or (s.asset_type in RF_TYPES and s.current_price is None):
             if s.strength > best_strength:
                 best_strength = s.strength
@@ -252,12 +299,14 @@ def _stage_three_quantize(
         if a is None:
             continue
 
-        if a.type == "criptomoedas":
+        # Venue first: a B3 asset filed under crypto/RF/international for
+        # allocation (OBTC3 -> criptomoedas, IVVB11 -> etfs_internacionais)
+        # still settles in whole shares.
+        if _trades_whole(a):
             assert a.current_price is not None
-            suggestion_quantity = round((raw / a.current_price) * 1e4) / 1e4
-            suggestion_value = raw
-        elif a.type in FRACTIONAL_SHARE_TYPES:
-            # Avenue/Nomad brokers allow fractional US shares and REITs.
+            suggestion_quantity = float(math.floor(raw / a.current_price))
+            suggestion_value = suggestion_quantity * a.current_price
+        elif a.type == "criptomoedas":
             assert a.current_price is not None
             suggestion_quantity = round((raw / a.current_price) * 1e4) / 1e4
             suggestion_value = raw
@@ -271,9 +320,10 @@ def _stage_three_quantize(
                 suggestion_quantity = 1.0
                 suggestion_value = raw
         else:
+            # Avenue/Nomad brokers allow fractional US shares and REITs.
             assert a.current_price is not None
-            suggestion_quantity = float(math.floor(raw / a.current_price))
-            suggestion_value = suggestion_quantity * a.current_price
+            suggestion_quantity = round((raw / a.current_price) * 1e4) / 1e4
+            suggestion_value = raw
 
         if suggestion_value <= 0:
             continue
