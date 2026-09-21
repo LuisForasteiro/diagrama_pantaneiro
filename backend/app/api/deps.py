@@ -15,6 +15,7 @@ import uuid
 
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import current_active_user
@@ -50,21 +51,34 @@ async def get_active_portfolio(
             )
         return portfolio
 
-    # No header → fallback to default. Guaranteed to exist for every user
-    # after migration 0005 (one Principal is created per user).
-    portfolio = (
+    # No header → fallback to default. Migration 0005 created one Principal per
+    # existing user; users registered later get theirs lazily, right here.
+    user_id = user.id  # read now: a rollback below expires `user`
+    portfolio = await _default_portfolio(session, user_id)
+    if portfolio is None:
+        portfolio = Portfolio(user_id=user_id, name="Principal", is_default=True)
+        session.add(portfolio)
+        try:
+            await session.commit()
+        except IntegrityError:
+            # A new user's first page load fires several requests at once, and
+            # each one tries to create the default: one wins, the others land
+            # here on UNIQUE(user_id, name) — use the winner's instead of a 500.
+            await session.rollback()
+            portfolio = await _default_portfolio(session, user_id)
+            if portfolio is None:
+                raise
+        else:
+            await session.refresh(portfolio)
+    return portfolio
+
+
+async def _default_portfolio(session: AsyncSession, user_id: uuid.UUID) -> Portfolio | None:
+    return (
         await session.execute(
             select(Portfolio)
-            .where(Portfolio.user_id == user.id, Portfolio.is_default == True)  # noqa: E712
+            .where(Portfolio.user_id == user_id, Portfolio.is_default == True)  # noqa: E712
             .order_by(Portfolio.created_at.asc())
             .limit(1)
         )
     ).scalar_one_or_none()
-    if portfolio is None:
-        # Defensive: a brand-new user with no default yet (shouldn't happen
-        # after Phase 1, but keeps the system self-healing).
-        portfolio = Portfolio(user_id=user.id, name="Principal", is_default=True)
-        session.add(portfolio)
-        await session.commit()
-        await session.refresh(portfolio)
-    return portfolio

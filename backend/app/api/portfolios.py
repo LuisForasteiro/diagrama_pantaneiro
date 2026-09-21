@@ -3,15 +3,22 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import delete, select
 from sqlalchemy import func as sa_func
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import current_active_user
 from app.core.db import get_async_session
-from app.models.portfolio import Portfolio
-from app.models.user import User
+from app.models import (
+    AporteAllocation,
+    AporteEvent,
+    Category,
+    InvestmentTarget,
+    Portfolio,
+    Position,
+    User,
+)
 from app.schemas.portfolio import PortfolioCreate, PortfolioOut, PortfolioRename
 
 router = APIRouter(prefix="/api/portfolios", tags=["portfolios"])
@@ -113,6 +120,7 @@ async def delete_portfolio(
         )
 
     was_default = portfolio.is_default
+    await _delete_portfolio_data(session, portfolio.id)
     await session.delete(portfolio)
     await session.flush()
 
@@ -130,3 +138,16 @@ async def delete_portfolio(
             replacement.is_default = True
 
     await session.commit()
+
+
+async def _delete_portfolio_data(session: AsyncSession, portfolio_id: uuid.UUID) -> None:
+    """Explicit cascade. The schema declares ON DELETE CASCADE, but SQLite only
+    enforces it with PRAGMA foreign_keys=ON — and that can't be switched on yet:
+    categories.id is stored as 32-hex while the GUID columns pointing at it hold
+    36-char UUIDs, so enforcement would reject valid category links."""
+    event_ids = select(AporteEvent.id).where(AporteEvent.portfolio_id == portfolio_id)
+    await session.execute(
+        delete(AporteAllocation).where(AporteAllocation.aporte_event_id.in_(event_ids))
+    )
+    for model in (AporteEvent, Position, InvestmentTarget, Category):
+        await session.execute(delete(model).where(model.portfolio_id == portfolio_id))
