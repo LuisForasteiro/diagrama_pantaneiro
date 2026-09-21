@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 from contextlib import asynccontextmanager
 
@@ -28,11 +29,16 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     scheduler = build_scheduler(get_settings())
     scheduler.start()
-    # Non-blocking startup jobs so boot isn't delayed by network I/O.
-    asyncio.create_task(run_startup_jobs())
+    # Non-blocking startup jobs so boot isn't delayed by network I/O. Keep the
+    # reference: the event loop only holds tasks weakly, so an unreferenced one
+    # can be garbage-collected mid-flight.
+    startup_jobs = asyncio.create_task(run_startup_jobs())
     try:
         yield
     finally:
+        startup_jobs.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await startup_jobs
         scheduler.shutdown(wait=False)
 
 

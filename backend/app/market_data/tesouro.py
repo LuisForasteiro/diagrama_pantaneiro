@@ -10,6 +10,7 @@ re-downloaded on every refresh click.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import time
 from datetime import datetime
@@ -33,35 +34,98 @@ _CSV_CACHE_TTL = 6 * 3600  # 6 hours
 
 _cache: dict[str, tuple[pd.DataFrame, float]] = {}
 
+# One download at a time: the refresh job prices every position concurrently,
+# and on a cold cache each Tesouro position used to fetch the 14 MB CSV itself.
+_load_lock: asyncio.Lock | None = None
+_load_lock_loop: asyncio.AbstractEventLoop | None = None
 
-async def _load_csv() -> pd.DataFrame:
-    now = time.time()
-    cached = _cache.get("csv")
-    if cached is not None and now - cached[1] < _CSV_CACHE_TTL:
-        return cached[0]
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            r = await client.get(_CSV_URL)
-            r.raise_for_status()
-            df = pd.read_csv(io.StringIO(r.text), sep=";", decimal=",")
-    except Exception as e:
-        if cached is not None:
-            return cached[0]
-        raise AdapterNetworkError(f"Tesouro CSV fetch failed: {e}") from e
+def _get_load_lock() -> asyncio.Lock:
+    # Created lazily per event loop: an asyncio.Lock is bound to the loop it
+    # first waits on, and tests run each case on a fresh loop.
+    global _load_lock, _load_lock_loop
+    loop = asyncio.get_running_loop()
+    if _load_lock is None or _load_lock_loop is not loop:
+        _load_lock, _load_lock_loop = asyncio.Lock(), loop
+    return _load_lock
 
+
+_PARSE_CHUNK_ROWS = 20_000
+
+
+def _parse_csv(text: str) -> pd.DataFrame:
+    # Runs in a worker thread, but pandas' C parser holds the GIL: one big
+    # read_csv still stalled the event loop ~0.4s. Chunks hand the GIL back
+    # between reads (~0.09s worst stall) and are reduced as they arrive.
+    reader = pd.read_csv(
+        io.StringIO(text), sep=";", decimal=",", chunksize=_PARSE_CHUNK_ROWS
+    )
+    return _keep_pickable_rows(
+        pd.concat(_keep_pickable_rows(_with_dates(chunk)) for chunk in reader)
+    )
+
+
+def _with_dates(df: pd.DataFrame) -> pd.DataFrame:
     # "Data Base" comes as dd/mm/yyyy TEXT. Sorting it as a string is
     # chronologically wrong (e.g. "31/12/2015" > "01/06/2026"), which made the
     # adapter pick stale rows and return prices ~10 years old. Parse it once to
     # a real datetime so every sort/most-recent pick is by actual date.
-    df["_data_base_dt"] = pd.to_datetime(
-        df["Data Base"], dayfirst=True, errors="coerce"
+    return df.assign(
+        _data_base_dt=pd.to_datetime(df["Data Base"], dayfirst=True, errors="coerce"),
+        _venc_dt=pd.to_datetime(df["Data Vencimento"], dayfirst=True, errors="coerce"),
     )
-    df["_venc_dt"] = pd.to_datetime(
-        df["Data Vencimento"], dayfirst=True, errors="coerce"
-    )
-    _cache["csv"] = (df, now)
-    return df
+
+
+def _keep_pickable_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """The CSV holds the full daily history (~176k rows). fetch_price/search
+    only ever pick, per title + maturity, the newest row (search) or the newest
+    row that has a price (fetch_price). Keep just those, newest first: walking
+    the whole history row by row blocked the event loop for ~6s per lookup and
+    froze the API during the startup price refresh."""
+    df = df.sort_values(by="_data_base_dt", ascending=False, kind="stable")
+    title_maturity = ["Tipo Titulo", "Data Vencimento"]
+    newest = df.drop_duplicates(subset=title_maturity)
+    newest_priced = df[df["PU Venda Manha"].notna()].drop_duplicates(subset=title_maturity)
+    keep = newest.index.union(newest_priced.index)
+    return df[df.index.isin(keep)]
+
+
+def _fresh_cached(now: float) -> pd.DataFrame | None:
+    cached = _cache.get("csv")
+    if cached is not None and now - cached[1] < _CSV_CACHE_TTL:
+        return cached[0]
+    return None
+
+
+async def _download_csv() -> str:
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get(_CSV_URL)
+        r.raise_for_status()
+    return r.text
+
+
+async def _load_csv() -> pd.DataFrame:
+    fresh = _fresh_cached(time.time())
+    if fresh is not None:
+        return fresh
+
+    async with _get_load_lock():
+        now = time.time()
+        fresh = _fresh_cached(now)  # another caller may have loaded it meanwhile
+        if fresh is not None:
+            return fresh
+        cached = _cache.get("csv")
+        try:
+            text = await _download_csv()
+            # pandas is CPU-bound; parse off the event loop.
+            df = await asyncio.to_thread(_parse_csv, text)
+        except Exception as e:
+            if cached is not None:
+                return cached[0]
+            raise AdapterNetworkError(f"Tesouro CSV fetch failed: {e}") from e
+
+        _cache["csv"] = (df, now)
+        return df
 
 
 def _reset_cache_for_tests() -> None:
@@ -113,12 +177,11 @@ class TesouroAdapter:
         q_product = _product_of(query)
         # If the query doesn't identify a product yet (user typed "tes"),
         # return one representative row per product so they can drill in.
-        df_sorted = df.sort_values(by="_data_base_dt", ascending=False)
         today = datetime.now().date()
         seen: set[tuple[str, bool, str]] = set()
         results: list[Candidate] = []
 
-        for _, row in df_sorted.iterrows():
+        for _, row in df.iterrows():  # newest first, see _keep_pickable_rows
             title_raw = str(row.get("Tipo Titulo", ""))
             title_product = _product_of(title_raw)
             if title_product is None:
@@ -182,11 +245,10 @@ class TesouroAdapter:
                 f"Tesouro: could not identify product family in '{external_id}'"
             )
 
-        df_sorted = df.sort_values(by="_data_base_dt", ascending=False)
 
         candidate_years: set[str] = set()
 
-        for _, row in df_sorted.iterrows():
+        for _, row in df.iterrows():  # newest first, see _keep_pickable_rows
             title_raw = str(row.get("Tipo Titulo", ""))
             title_product = _product_of(title_raw)
             if title_product != needle_product:

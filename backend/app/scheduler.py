@@ -47,14 +47,19 @@ async def sync_catalog_job() -> None:
 async def run_startup_jobs() -> None:
     """Fire-and-forget at boot: sync the catalog if empty so autocomplete
     works on a fresh deploy, then refresh prices once."""
-    maker = get_async_session_maker()
-    async with maker() as session:
-        empty = (
-            await session.execute(select(TickerCatalog.id).limit(1))
-        ).first() is None
-    if empty:
-        await sync_catalog_job()
-    await refresh_prices_job()
+    try:
+        maker = get_async_session_maker()
+        async with maker() as session:
+            empty = (
+                await session.execute(select(TickerCatalog.id).limit(1))
+            ).first() is None
+        if empty:
+            await sync_catalog_job()
+        await refresh_prices_job()
+    except Exception:
+        # Runs as a detached task: an escaping error would only surface as
+        # "Task exception was never retrieved" (or at shutdown), never in the logs.
+        logger.exception("startup jobs failed")
 
 
 def build_scheduler(settings: Settings) -> AsyncIOScheduler:
