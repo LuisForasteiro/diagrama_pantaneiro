@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { login, register, getCurrentUser } from "../../src/lib/api/auth";
+import { ApiError } from "../../src/lib/api/client";
+import { hangingFetch, track } from "../helpers/fetch";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  vi.useRealTimers();
 });
 
 describe("auth api", () => {
@@ -56,5 +59,39 @@ describe("auth api", () => {
 
     const user = await getCurrentUser();
     expect(user.email).toBe("me@x.y");
+  });
+
+  it("getCurrentUser forwards timeoutMs so a frozen backend fails fast", async () => {
+    vi.useFakeTimers();
+    globalThis.fetch = hangingFetch() as typeof fetch;
+
+    const outcome = track(getCurrentUser({ timeoutMs: 15_000 }));
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    expect(outcome.settled).toBe(true);
+    expect(outcome.error).toBeInstanceOf(ApiError);
+    expect(outcome.error).toMatchObject({ status: 0 });
+  });
+
+  it("login maps a network failure to ApiError(0)", async () => {
+    globalThis.fetch = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }) as typeof fetch;
+
+    const error = await login("a@b.c", "x").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status: 0, detail: "não foi possível conectar ao servidor" });
+  });
+
+  it("login keeps ApiError(status) for a non-ok response", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ detail: "LOGIN_BAD_CREDENTIALS" }), { status: 400 }),
+    ) as typeof fetch;
+
+    const error = await login("a@b.c", "wrong").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status: 400 });
   });
 });

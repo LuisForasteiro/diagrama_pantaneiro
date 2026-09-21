@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
 
   import { login, getCurrentUser } from "$lib/api/auth";
+  import { ApiError } from "$lib/api/client";
   import { authStore } from "$lib/stores/auth";
   import Panel from "$lib/components/Panel.svelte";
 
@@ -10,18 +11,34 @@
   let error = $state<string | null>(null);
   let submitting = $state(false);
 
+  function loginErrorMessage(e: unknown): string {
+    if (e instanceof ApiError && e.status === 400) return "e-mail ou senha inválidos";
+    if (e instanceof ApiError && e.status === 0) {
+      return "não foi possível conectar ao servidor — o backend está no ar?";
+    }
+    return e instanceof Error ? e.message : String(e);
+  }
+
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     error = null;
     submitting = true;
+    let sessionUnconfirmed = false;
     try {
       const { access_token } = await login(email, password);
+      // getCurrentUser needs the token in the store (Authorization header),
+      // so it is stored first with a placeholder user and rolled back below.
       authStore.login(access_token, { id: "", email, is_active: true, is_superuser: false, is_verified: false });
+      sessionUnconfirmed = true;
       const user = await getCurrentUser();
       authStore.setUser(user);
+      sessionUnconfirmed = false;
       await goto("/home");
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      // Don't leave a token + placeholder user behind: the (app) layout would
+      // trust it and skip revalidating the session.
+      if (sessionUnconfirmed) authStore.logout();
+      error = loginErrorMessage(e);
     } finally {
       submitting = false;
     }

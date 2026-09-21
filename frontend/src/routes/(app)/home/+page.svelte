@@ -27,6 +27,7 @@
   import { getCategories } from "$lib/api/categories";
   import { leafEffectiveTargets } from "$lib/categories";
   import { offTargetCount } from "$lib/portfolioMetrics";
+  import { createLatestGuard } from "$lib/latestGuard";
   import type { PositionOut, TargetOut, CategoryTree } from "$lib/types/api";
 
   const CLASS_ABBR: Record<string, string> = {
@@ -114,13 +115,12 @@
     portfolios.find((p) => p.id === activePortfolioId) ?? null,
   );
 
-  async function switchPortfolio(id: string) {
-    if (id === activePortfolioId) {
-      showPortfolioMenu = false;
-      return;
-    }
-    portfolioStore.setActive(id);
-    showPortfolioMenu = false;
+  // Switching A → B quickly must not let A's late responses overwrite B's
+  // data; only the latest load (initial or switch) may write state.
+  const portfolioLoads = createLatestGuard();
+
+  async function loadPortfolioData() {
+    const isLatest = portfolioLoads.begin();
     loading = true;
     error = null;
     try {
@@ -129,14 +129,25 @@
         listTargets(),
         getCategories(),
       ]);
+      if (!isLatest()) return;
       positions = pos;
       targets = tgts;
       categoryTree = cats;
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      if (isLatest()) error = e instanceof Error ? e.message : String(e);
     } finally {
-      loading = false;
+      if (isLatest()) loading = false;
     }
+  }
+
+  async function switchPortfolio(id: string) {
+    if (id === activePortfolioId) {
+      showPortfolioMenu = false;
+      return;
+    }
+    portfolioStore.setActive(id);
+    showPortfolioMenu = false;
+    await loadPortfolioData();
   }
 
   async function handleRefresh() {
@@ -162,22 +173,7 @@
     }
   }
 
-  onMount(async () => {
-    try {
-      const [pos, tgts, cats] = await Promise.all([
-        listPositions(),
-        listTargets(),
-        getCategories(),
-      ]);
-      positions = pos;
-      targets = tgts;
-      categoryTree = cats;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    } finally {
-      loading = false;
-    }
-  });
+  onMount(loadPortfolioData);
 
   let totalValue = $derived(positions.reduce((s, p) => s + p.currentValueBrl, 0));
 

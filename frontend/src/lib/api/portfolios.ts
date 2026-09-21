@@ -5,8 +5,8 @@ import type {
   PortfolioRename,
 } from "$lib/types/api";
 
-export function listPortfolios(): Promise<PortfolioOut[]> {
-  return apiRequest<PortfolioOut[]>("/portfolios");
+export function listPortfolios(opts: { timeoutMs?: number } = {}): Promise<PortfolioOut[]> {
+  return apiRequest<PortfolioOut[]>("/portfolios", { timeoutMs: opts.timeoutMs });
 }
 
 export function createPortfolio(name: string): Promise<PortfolioOut> {
